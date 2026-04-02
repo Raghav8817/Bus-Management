@@ -11,24 +11,26 @@ function StudentLogin() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    // --- DYNAMIC URL SETUP ---
+    // If VITE_API_URL is set in Vercel, it uses that. Otherwise, it defaults to localhost.
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
     const handleLogin = async () => {
         setError("");
         setLoading(true);
 
         try {
-            const response = await fetch("https://bus-management-mrx0.onrender.com/login", {
+            // FIXED: Using template literal with BASE_URL
+            const response = await fetch(`${BASE_URL}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ role, id, password, busNumber }),
-                // CRITICAL: This allows the browser to receive and save the HttpOnly cookie
                 credentials: "include"
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                // The browser has already saved the cookie at this point.
-                // We navigate based on the role returned in the JSON body.
                 if (data.role === "driver") {
                     navigate("/driver-dashboard", { replace: true });
                 } else if (data.role === "management") {
@@ -129,11 +131,11 @@ function StudentLogin() {
                                 key={r}
                                 onClick={() => {
                                     setRole(r);
-                                    setError(""); // Clear error when switching roles
+                                    setError("");
                                 }}
                                 className={`flex-1 py-2 rounded-full font-medium transition-all duration-300 ${role === r
-                                        ? "bg-cyan-500 text-white shadow-lg"
-                                        : "text-white hover:bg-white/10"
+                                    ? "bg-cyan-500 text-white shadow-lg"
+                                    : "text-white hover:bg-white/10"
                                     }`}
                             >
                                 {r.charAt(0).toUpperCase() + r.slice(1)}

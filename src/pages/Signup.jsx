@@ -12,7 +12,6 @@ const Input = ({ type = "text", placeholder, value, setValue }) => (
 )
 
 function Signup() {
-
     const navigate = useNavigate()
     const [role, setRole] = useState("student")
 
@@ -37,8 +36,10 @@ function Signup() {
     const [managementEmail, setManagementEmail] = useState("")
     const [managementAddress, setManagementAddress] = useState("")
 
-    const handleSignup = async () => {
+    // --- DYNAMIC URL SETUP ---
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+    const handleSignup = async () => {
         setError("")
 
         if (!fullName || !password) {
@@ -46,121 +47,73 @@ function Signup() {
             return
         }
 
-        if (role === "student") {
-            if (!studentBusId || !course || !branchSem || !studentContact || !studentEmail || !studentAddress) {
-                setError("All student fields are required")
-                return
-            }
+        if (role === "student" && (!studentBusId || !course || !branchSem || !studentContact || !studentEmail || !studentAddress)) {
+            setError("All student fields are required")
+            return
         }
 
-        if (role === "driver") {
-            if (!busId || !driverId || !busNumber || !driverContact || !driverAddress) {
-                setError("All driver fields are required")
-                return
-            }
+        if (role === "driver" && (!busId || !driverId || !busNumber || !driverContact || !driverAddress)) {
+            setError("All driver fields are required")
+            return
         }
 
-        if (role === "management") {
-            if (!managementId || !managementEmail || !managementAddress) {
-                setError("All management fields are required")
-                return
-            }
+        if (role === "management" && (!managementId || !managementEmail || !managementAddress)) {
+            setError("All management fields are required")
+            return
         }
 
         const newUser = {
             role,
             fullName,
             password,
-
             busId: role === "student" ? studentBusId : busId,
-
             course: role === "student" ? course : null,
             branchSem: role === "student" ? branchSem : null,
-
-            contact:
-                role === "student"
-                    ? studentContact
-                    : role === "driver"
-                    ? driverContact
-                    : null,
-
-            email:
-                role === "student"
-                    ? studentEmail
-                    : role === "management"
-                    ? managementEmail
-                    : null,
-
-            address:
-                role === "student"
-                    ? studentAddress
-                    : role === "driver"
-                    ? driverAddress
-                    : role === "management"
-                    ? managementAddress
-                    : null,
-
+            contact: role === "student" ? studentContact : (role === "driver" ? driverContact : null),
+            email: role === "student" ? studentEmail : (role === "management" ? managementEmail : null),
+            address: role === "student" ? studentAddress : (role === "driver" ? driverAddress : managementAddress),
             driverId: role === "driver" ? driverId : null,
             busNumber: role === "driver" ? busNumber : null,
-
             managementId: role === "management" ? managementId : null
         }
 
-        console.log(newUser);
-
-        
-        
         try {
-            const response=await fetch("http://localhost:3000/signup",{
-                method:"POST",
-                headers: { "Content-Type": "application/json", },
-                body:JSON.stringify(newUser),
+            // FIXED: Using template literal with BASE_URL
+            const response = await fetch(`${BASE_URL}/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newUser),
                 credentials: "include",
             });
-            const result=await response.json()
+
+            const result = await response.json()
+
             if (response.ok) {
                 alert("Account Created Successfully")
-                console.log(response.message);
-                if (role==="student") {
-                    navigate("/")
-                }
-                else if (role==="driver") {
-                    navigate("/driver-dashboard")
-                }
-                else{
-                    navigate("/management-dashboard")
-                }
-            }
-            else{
-                setError(result.message||"Server Error at Signup")
+                if (role === "student") navigate("/")
+                else if (role === "driver") navigate("/driver-dashboard")
+                else navigate("/management-dashboard")
+            } else {
+                setError(result.error || "Server Error at Signup")
             }
         } catch (error) {
             console.error(error);
             setError("Internal Server Error. Is the backend running?");
         }
-
-        
     }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-yellow-500 flex items-center justify-center px-4 py-10">
-
             <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
-
-                <h1 className="text-3xl font-bold text-center mb-6 text-black">
-                    Create Account
-                </h1>
+                <h1 className="text-3xl font-bold text-center mb-6 text-black">Create Account</h1>
 
                 <div className="flex mb-8 bg-gray-100 rounded-full p-1">
                     {["student", "driver", "management"].map((r) => (
                         <button
                             key={r}
                             onClick={() => setRole(r)}
-                            className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${
-                                role === r
-                                    ? "bg-yellow-400 text-black shadow-md"
-                                    : "text-gray-600"
-                            }`}
+                            className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${role === r ? "bg-yellow-400 text-black shadow-md" : "text-gray-600"
+                                }`}
                         >
                             {r.charAt(0).toUpperCase() + r.slice(1)}
                         </button>
@@ -168,7 +121,6 @@ function Signup() {
                 </div>
 
                 <div className="space-y-4">
-
                     {role === "student" && (
                         <>
                             <Input placeholder="Full Name" value={fullName} setValue={setFullName} />
@@ -204,11 +156,7 @@ function Signup() {
                         </>
                     )}
 
-                    {error && (
-                        <p className="text-red-500 text-sm text-center">
-                            {error}
-                        </p>
-                    )}
+                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
                     <button
                         onClick={handleSignup}
@@ -216,7 +164,6 @@ function Signup() {
                     >
                         Sign Up
                     </button>
-
                 </div>
             </div>
         </div>
@@ -224,4 +171,3 @@ function Signup() {
 }
 
 export default Signup
-

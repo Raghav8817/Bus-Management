@@ -5,24 +5,26 @@ import BottomNav from "./BottomNav"
 
 function Home() {
     const navigate = useNavigate()
-    const [user, setUser] = useState(null) // State is named 'user'
+    const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
     const [trackingData, setTrackingData] = useState({
         arrivalTime: 20,
         distance: 2.8
     })
 
+    // --- DYNAMIC URL SETUP ---
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
     useEffect(() => {
         const fetchStudentData = async () => {
             try {
-                const res = await fetch("http://localhost:3000/user-data", {
+                // FIXED: Now uses the dynamic BASE_URL for live/local compatibility
+                const res = await fetch(`${BASE_URL}/user-data`, {
                     credentials: "include"
                 });
                 const data = await res.json();
 
                 if (res.ok) {
-                    // FIX: Changed setStudent(data) to setUser(data) 
-                    // because your state variable is named 'user'
                     setUser(data);
                 } else {
                     console.error("Failed to fetch user data:", data.error);
@@ -30,7 +32,6 @@ function Home() {
             } catch (error) {
                 console.error("Fetch error:", error);
             } finally {
-                // FIX: Stop the loading spinner once the request finishes
                 setLoading(false);
             }
         };
@@ -41,9 +42,8 @@ function Home() {
         if (storedTracking) {
             setTrackingData(storedTracking)
         }
-    }, [navigate])
+    }, [navigate, BASE_URL]); // Added BASE_URL to dependency array
 
-    // While waiting for the backend, show this:
     if (loading) {
         return (
             <div className="h-screen flex items-center justify-center bg-black text-white font-mono">
@@ -55,16 +55,22 @@ function Home() {
         )
     }
 
-    // If fetch failed or user is still null, don't crash
     if (!user) {
         return (
-            <div className="h-screen flex items-center justify-center bg-red-900 text-white">
-                <p>Failed to load profile. Please try logging in again.</p>
+            <div className="h-screen flex items-center justify-center bg-red-900 text-white p-6 text-center">
+                <div>
+                    <p className="mb-4 text-lg font-bold">Failed to load profile.</p>
+                    <button
+                        onClick={() => navigate("/login")}
+                        className="bg-white text-red-900 px-6 py-2 rounded-full font-bold"
+                    >
+                        Return to Login
+                    </button>
+                </div>
             </div>
         )
     }
 
-    // Mapping the data from your MySQL columns
     const firstName = user.full_name?.split(" ")[0] || "Student"
     const hour = new Date().getHours()
     let greeting = "Good Morning"
@@ -73,7 +79,6 @@ function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-black relative pb-20">
-
             <div className="px-6 pt-2 pb-8 relative">
                 {/* Header Section */}
                 <div className="flex justify-between items-center mb-6">
@@ -166,7 +171,7 @@ function Home() {
 
             {/* Bottom Section */}
             <div className="bg-black rounded-t-[40px] px-6 py-8 min-h-[60vh] shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-
+                {/* Morning/Evening Route sections remain same */}
                 <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-6 mb-6 text-center shadow-xl">
                     <h2 className="text-xl font-bold text-white mb-4">MORNING ROUTE</h2>
                     <div className="flex flex-col gap-3">
@@ -185,6 +190,7 @@ function Home() {
                     </div>
                 </div>
 
+                {/* Evening Route */}
                 <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-3xl p-6 mb-8 text-center shadow-xl">
                     <h2 className="text-xl font-bold text-white mb-4">EVENING ROUTE</h2>
                     <div className="flex flex-col gap-3">
