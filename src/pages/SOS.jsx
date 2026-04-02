@@ -9,26 +9,47 @@ function SOS() {
 
   // Load saved contact
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("sos_contact"))
-    if (saved) {
-      setContactName(saved.name)
-      setPhoneNumber(saved.phone)
-    }
+    const fetchContact = async () => {
+      const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      try {
+        const res = await fetch(`${BASE_URL}/api/reports?type=sos_contact`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.length > 0) {
+            setContactName(data[0].data.name);
+            setPhoneNumber(data[0].data.phone);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchContact();
   }, [])
 
   // Save contact
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!contactName || !phoneNumber) {
       alert("Please enter contact name and number.")
       return
     }
-
-    localStorage.setItem(
-      "sos_contact",
-      JSON.stringify({ name: contactName, phone: phoneNumber })
-    )
-
-    alert("Emergency contact saved ✅")
+    
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    try {
+      await fetch(`${BASE_URL}/api/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+           type: "sos_contact",
+           referenceId: "default",
+           data: { name: contactName, phone: phoneNumber }
+        })
+      });
+      alert("Emergency contact saved ✅");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save emergency contact");
+    }
   }
 
   const handleDial = () => {

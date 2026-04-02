@@ -7,17 +7,28 @@ function BusFeeStatus() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
 
-    useEffect(() => {
-
-        const storedUser = JSON.parse(localStorage.getItem("user"))
-
-        if (!storedUser) {
-            navigate("/")
-        } else {
-            setUser(storedUser)
-        }
-
-    }, [navigate])
+  useEffect(() => {
+    const fetchData = async () => {
+      const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+      try {
+        const uRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+        if (!uRes.ok) { navigate("/"); return; }
+        const currentUser = await uRes.json();
+        
+        setUser({
+           ...currentUser, 
+           busId: currentUser.bus_id || currentUser.busId, 
+           fullName: currentUser.full_name || currentUser.fullName, 
+           branchSem: currentUser.branch_semester || currentUser.branchSem,
+           contact: currentUser.contact_number || currentUser.contact
+        });
+      } catch (err) {
+        console.error(err);
+        navigate("/");
+      }
+    };
+    fetchData();
+  }, [navigate]);
 
     if (!user) {
         return (

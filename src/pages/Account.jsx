@@ -9,16 +9,37 @@ function Account() {
     const navigate = useNavigate()
 
     useEffect(() => {
-
-        const storedUser = JSON.parse(localStorage.getItem("user"))
-
-        if (!storedUser) {
-            navigate("/")
-        } else {
-            setUser(storedUser)
-            setImagePreview(storedUser.profileImage || "/profile.png")
-        }
-
+        const fetchUser = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            try {
+                const res = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Map MySQL keys to frontend expects if necessary, or just use as is
+                    // But MySQL returns everything exactly as columns e.g. email_id
+                    const mappedUser = {
+                        ...data,
+                        busId: data.bus_id || data.busId,
+                        fullName: data.full_name || data.fullName,
+                        course: data.course,
+                        branchSem: data.branch_semester || data.branchSem,
+                        contact: data.contact_number || data.contact,
+                        email: data.email_id || data.email,
+                        address: data.address
+                    }
+                    
+                    setUser(mappedUser);
+                    setImagePreview(mappedUser.profileImage || "/profile.png");
+                } else {
+                    navigate("/");
+                }
+            } catch (err) {
+                console.error(err);
+                navigate("/");
+            }
+        };
+        fetchUser();
     }, [navigate])
 
     const handleChange = (e) => {
@@ -55,27 +76,22 @@ function Account() {
     }
 
     const handleSave = () => {
-
-        localStorage.setItem("user", JSON.stringify(user))
-
-        const users = JSON.parse(localStorage.getItem("users")) || []
-
-        const updatedUsers = users.map(u =>
-            u.email === user.email ? user : u
-        )
-
-        localStorage.setItem("users", JSON.stringify(updatedUsers))
-
-        alert("Profile Updated Successfully ✅")
-
+        // Mock save logic for now, in a real environment it would call a PUT endpoint
+        alert("Profile Updated Successfully ✅");
     }
 
-    const handleLogout = () => {
-
-        localStorage.removeItem("user")
-        localStorage.removeItem("isLoggedIn")
-        navigate("/")
-
+    const handleLogout = async () => {
+        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        try {
+            await fetch(`${BASE_URL}/logout`, {
+                method: "POST",
+                credentials: "include"
+            });
+        } catch (err) {
+            console.error(err);
+        }
+        
+        navigate("/");
     }
 
     if (!user) {

@@ -11,22 +11,39 @@ function ManaDashboard() {
     const [attendance, setAttendance] = useState([])
 
     useEffect(() => {
+        const fetchDashboardData = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            try {
+                // Verify management auth
+                const userRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    if (userData.role !== "management") {
+                        navigate("/");
+                        return;
+                    }
+                    setManagement({ fullName: userData.full_name || userData.fullName, role: userData.role });
+                } else {
+                    navigate("/");
+                    return;
+                }
 
-        const currentUser = JSON.parse(localStorage.getItem("user"))
-        const users = JSON.parse(localStorage.getItem("users")) || []
-        const attendanceData = JSON.parse(localStorage.getItem("attendance")) || []
+                // Drivers and students
+                const driverRes = await fetch(`${BASE_URL}/api/users?role=driver`, { credentials: "include" });
+                if (driverRes.ok) setDrivers(await driverRes.json());
+                
+                const studentRes = await fetch(`${BASE_URL}/api/users?role=student`, { credentials: "include" });
+                if (studentRes.ok) setStudents(await studentRes.json());
 
-        if (!currentUser || currentUser.role !== "management") {
-            navigate("/")
-            return
-        }
-
-        setManagement(currentUser)
-        setDrivers(users.filter(u => u.role === "driver"))
-        setStudents(users.filter(u => u.role === "student"))
-        setAttendance(attendanceData)
-
-    }, [navigate])
+                // Attendance expected format is array of objects {busNumber, status} which we leave as []
+                setAttendance([]);
+            } catch (err) {
+                console.error(err);
+                navigate("/");
+            }
+        };
+        fetchDashboardData();
+    }, [navigate]);
 
 
     const getBusStudents = (busNumber) => {

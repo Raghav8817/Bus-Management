@@ -21,22 +21,33 @@ function AttendanceTemplate({ type }) {
     const daysInMonth = new Date(year, month + 1, 0).getDate()
 
     useEffect(() => {
-        const saved = JSON.parse(localStorage.getItem(storageKey))
-        if (saved) setAttendance(saved)
-    }, [storageKey])
+        const fetchAttendance = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            try {
+                const res = await fetch(`${BASE_URL}/api/attendance?type=${type}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAttendance(data);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchAttendance();
+    }, [type]);
 
     const isToday = (day) =>
         year === todayYear &&
         month === todayMonth &&
         day === todayDate
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!selectedStatus) {
             alert("Please select attendance type first.")
             return
         }
 
-        const key = `${year}-${month}-${todayDate}`
+        const key = `${year}-${month + 1}-${todayDate}`
 
         const updatedAttendance = {
             ...attendance,
@@ -44,9 +55,20 @@ function AttendanceTemplate({ type }) {
         }
 
         setAttendance(updatedAttendance)
-        localStorage.setItem(storageKey, JSON.stringify(updatedAttendance))
-
-        alert("Attendance saved successfully ✅")
+        
+        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        try {
+            await fetch(`${BASE_URL}/api/attendance`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ type, dateStr: key, status: selectedStatus }),
+                credentials: "include"
+            });
+            alert("Attendance saved successfully ✅")
+        } catch (err) {
+            console.error(err);
+            alert("Error saving attendance");
+        }
     }
 
     const calculateAttendance = () => {

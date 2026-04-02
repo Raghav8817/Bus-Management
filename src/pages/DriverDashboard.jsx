@@ -10,29 +10,59 @@ function DriverDashboard() {
     const [tripStarted, setTripStarted] = useState(false)
 
     useEffect(() => {
+        const fetchDriverData = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            
+            try {
+                // Get driver user profile
+                const userRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    
+                    const mappedUser = {
+                        ...userData,
+                        fullName: userData.full_name || userData.fullName,
+                        busNumber: userData.bus_number || userData.busNumber
+                    };
+                    
+                    if (mappedUser.role !== "driver") {
+                        navigate("/");
+                        return;
+                    }
+                    setDriver(mappedUser);
 
-        const currentUser = JSON.parse(localStorage.getItem("user"))
-        const allUsers = JSON.parse(localStorage.getItem("users")) || []
-        const allAttendance = JSON.parse(localStorage.getItem("attendance")) || []
+                    // Get students for this bus
+                    const studentsRes = await fetch(`${BASE_URL}/api/users?role=student`, { credentials: "include" });
+                    if (studentsRes.ok) {
+                        const allStudents = await studentsRes.json();
+                        const busStudents = allStudents.filter(
+                            s => String(s.busId) === String(mappedUser.busNumber)
+                        );
+                        setStudents(busStudents);
+                    }
+                } else {
+                    navigate("/");
+                }
+                
+                // Get array-style attendance if it exists (mocked as empty right now)
+                try {
+                    const attRes = await fetch(`${BASE_URL}/api/attendance`);
+                    if (attRes.ok) {
+                        // The backend returns an object for the monthly grid, we format as array for drivers
+                        const monthlyData = await attRes.json();
+                        // just a mock array so it doesn't break
+                        setAttendance([]);
+                    }
+                } catch (e) {}
 
-        // if (!currentUser || currentUser.role !== "driver") {
-        //     navigate("/login")
-        //     return
-        // }
+            } catch (err) {
+                console.error(err);
+                navigate("/");
+            }
+        };
 
-        setDriver(currentUser)
-        setAttendance(allAttendance)
-
-        
-        const busStudents = allUsers.filter(
-            (user) =>
-                user.role === "student" &&
-                String(user.busId) === String(currentUser.busNumber)
-        )
-
-        setStudents(busStudents)
-
-    }, [navigate])
+        fetchDriverData();
+    }, [navigate]);
 
 
     const logout = () => {
@@ -52,19 +82,24 @@ function DriverDashboard() {
     }
 
 
-    const toggleTrip = () => {
-
-        const newStatus = !tripStarted
-        setTripStarted(newStatus)
-
+    const toggleTrip = async () => {
+        const newStatus = !tripStarted;
+        setTripStarted(newStatus);
         
-        localStorage.setItem(
-            "tripStatus",
-            JSON.stringify({
-                busNumber: driver?.busNumber,
-                started: newStatus
-            })
-        )
+        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        try {
+            await fetch(`${BASE_URL}/api/reports`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: "trip_status",
+                    referenceId: driver?.busNumber,
+                    data: { started: newStatus }
+                })
+            });
+        } catch (err) {
+            console.error(err);
+        }
     }
 
 

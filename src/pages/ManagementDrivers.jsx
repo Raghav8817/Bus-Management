@@ -9,24 +9,36 @@ function ManagementDrivers() {
     const [drivers, setDrivers] = useState([])
 
     useEffect(() => {
+        const fetchDrivers = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            
+            try {
+                // Fetch drivers from DB
+                const res = await fetch(`${BASE_URL}/api/users?role=driver`, { credentials: "include" });
+                if (res.ok) {
+                    const data = await res.json();
+                    setDrivers(data);
+                }
 
-        const currentUser = JSON.parse(localStorage.getItem("user"))
-        const users = JSON.parse(localStorage.getItem("users")) || []
+                // Verify management auth
+                const userRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    if (userData.role !== "management") {
+                        navigate("/");
+                    } else {
+                        setManagement({ fullName: userData.full_name || userData.fullName, role: userData.role });
+                    }
+                } else {
+                    navigate("/");
+                }
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+        };
 
-        if (!currentUser || currentUser.role !== "management") {
-            navigate("/")
-            return
-        }
-
-        setManagement(currentUser)
-
-        const driverUsers = users.filter(
-            u => u.role === "driver"
-        )
-
-        setDrivers(driverUsers)
-
-    }, [navigate])
+        fetchDrivers();
+    }, [navigate]);
 
 
     return (

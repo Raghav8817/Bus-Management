@@ -11,22 +11,31 @@ function AttendanceReports() {
     const [attendance, setAttendance] = useState([])
 
     useEffect(() => {
+        const fetchData = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            try {
+                const uRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (!uRes.ok) { navigate("/"); return; }
+                const currentUser = await uRes.json();
+                
+                if (!currentUser || currentUser.role !== "management") {
+                    navigate("/");
+                    return;
+                }
+                setManagement({ fullName: currentUser.full_name || currentUser.fullName, role: currentUser.role });
 
-        const currentUser = JSON.parse(localStorage.getItem("user"))
-        const users = JSON.parse(localStorage.getItem("users")) || []
-        const attendanceData = JSON.parse(localStorage.getItem("attendance")) || []
-
-        if (!currentUser || currentUser.role !== "management") {
-            navigate("/")
-            return
-        }
-
-        setManagement(currentUser)
-        setDrivers(users.filter(u => u.role === "driver"))
-        setStudents(users.filter(u => u.role === "student"))
-        setAttendance(attendanceData)
-
-    }, [navigate])
+                const dRes = await fetch(`${BASE_URL}/api/users?role=driver`, { credentials: "include" });
+                if (dRes.ok) {
+                    const driversList = await dRes.json();
+                    setDrivers(driversList);
+                }
+            } catch (err) {
+                console.error(err);
+                navigate("/");
+            }
+        };
+        fetchData();
+    }, [navigate]);
 
 
     const getWeeklyAttendance = (busNumber) => {

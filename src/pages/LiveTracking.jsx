@@ -48,11 +48,17 @@ function LiveTracking() {
     }, [])
 
     useEffect(() => {
-        localStorage.setItem(
-            "trackingData",
-            JSON.stringify({ distance, arrivalTime })
-        )
-    }, [distance, arrivalTime])
+        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        fetch(`${BASE_URL}/api/tracking`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                busNumber: busNumber, 
+                distance, 
+                arrivalTime 
+            })
+        }).catch(err => console.error("Error setting tracking", err));
+    }, [distance, arrivalTime, busNumber])
 
     const handleCallInfo = () => {
         alert(

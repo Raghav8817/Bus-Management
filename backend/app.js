@@ -157,6 +157,113 @@ app.post('/login', (req, res) => {
     });
 });
 
+// --- GET USERS FOR MANAGEMENT ---
+app.get('/api/users', (req, res) => {
+    const roleReq = req.query.role; // e.g., 'driver'
+    let sql = "";
+    if (roleReq === 'driver') {
+        sql = "SELECT driver_id, full_name as fullName, bus_number as busNumber, contact_number as contact, role FROM drivers";
+    } else if (roleReq === 'student') {
+        sql = "SELECT email_id, full_name as fullName, bus_id as busId, course, branch_semester as branchSem, contact_number as contact, role FROM students";
+    } else {
+        return res.status(400).json({ error: "Role needed" });
+    }
+
+    db.query(sql, (err, results) => {
+        if (err) return res.status(500).json({ error: "DB Error" });
+        res.json(results);
+    });
+});
+
+// --- TRACKING ---
+app.get('/api/tracking', (req, res) => {
+    db.query("SELECT * FROM bus_tracking", (err, results) => {
+        if (err) return res.status(500).json({ error: "DB Error" });
+        res.json(results);
+    });
+});
+
+app.post('/api/tracking', (req, res) => {
+    const { busNumber, distance, arrivalTime } = req.body;
+    const sql = `INSERT INTO bus_tracking (bus_number, distance, arrival_time) 
+                 VALUES (?, ?, ?) 
+                 ON DUPLICATE KEY UPDATE distance=VALUES(distance), arrival_time=VALUES(arrival_time)`;
+                 
+    db.query(sql, [busNumber, distance, arrivalTime], (err, results) => {
+        if (err) return res.status(500).json({ error: "DB Error" });
+        res.status(200).json({ message: "Updated tracking" });
+    });
+});
+
+// --- ATTENDANCE ---
+app.get('/api/attendance', (req, res) => {
+    const { userId, type } = req.query;
+    let sql = "SELECT * FROM attendance";
+    let params = [];
+    if (type) {
+        sql += " WHERE attendance_type = ?";
+        params.push(type);
+    }
+    
+    db.query(sql, params, (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "DB Error" });
+        }
+        // Format as { "YYYY-M-D": "status" } to match front-end
+        const formatted = {};
+        results.forEach(r => {
+            formatted[r.date_str] = r.status;
+        });
+        res.json(formatted);
+    });
+});
+
+app.post('/api/attendance', (req, res) => {
+    const { userId, type, dateStr, status } = req.body;
+    const sql = `INSERT INTO attendance (user_id, attendance_type, date_str, status)
+                 VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE status=VALUES(status)`;
+    
+    db.query(sql, [userId || "anonymous", type, dateStr, status], (err) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "DB Error" });
+        }
+        res.status(200).json({ message: "Attendance saved" });
+    });
+});
+
+// --- GENERIC REPORTS & COMPLAINTS ---
+app.get('/api/reports', (req, res) => {
+    const { type } = req.query;
+    let sql = "SELECT * FROM generic_reports";
+    let params = [];
+    if (type) {
+        sql += " WHERE report_type = ?";
+        params.push(type);
+    }
+    db.query(sql, params, (err, results) => {
+        if (err) return res.status(500).json({ error: "DB Error" });
+        res.json(results);
+    });
+});
+
+app.post('/api/reports', (req, res) => {
+    const { type, referenceId, data } = req.body;
+    const sql = "INSERT INTO generic_reports (report_type, reference_id, data) VALUES (?, ?, ?)";
+    db.query(sql, [type, referenceId, JSON.stringify(data || {})], (err) => {
+        if (err) return res.status(500).json({ error: "DB Error" });
+        res.status(200).json({ message: "Saved" });
+    });
+});
+
+// --- LOGOUT ---
+app.post('/logout', (req, res) => {
+    res.clearCookie('authToken', cookieOptions);
+    res.status(200).json({ message: "Logged out" });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

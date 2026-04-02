@@ -7,17 +7,25 @@ function ManagementReports() {
     const [management, setManagement] = useState(null)
 
     useEffect(() => {
-
-        const currentUser = JSON.parse(localStorage.getItem("user"))
-
-        if (!currentUser || currentUser.role !== "management") {
-            navigate("/")
-            return
-        }
-
-        setManagement(currentUser)
-
-    }, [navigate])
+        const fetchData = async () => {
+            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+            try {
+                const uRes = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
+                if (!uRes.ok) { navigate("/"); return; }
+                const currentUser = await uRes.json();
+                
+                if (!currentUser || currentUser.role !== "management") {
+                    navigate("/");
+                    return;
+                }
+                setManagement({ fullName: currentUser.full_name || currentUser.fullName, role: currentUser.role });
+            } catch (err) {
+                console.error(err);
+                navigate("/");
+            }
+        };
+        fetchData();
+    }, [navigate]);
 
 
     return (
