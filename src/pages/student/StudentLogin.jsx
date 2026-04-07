@@ -19,12 +19,20 @@ function StudentLogin() {
         setError("");
         setLoading(true);
 
+        // Dynamic payload based on role
+        const loginData = {
+            role,
+            password,
+            // If student, use 'email_id'. Otherwise, use 'id'.
+            [role === "student" ? "email_id" : "id"]: id,
+            bus_id: busNumber
+        };
+
         try {
-            // FIXED: Using template literal with BASE_URL
             const response = await fetch(`${BASE_URL}/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role, id, password, busNumber }),
+                body: JSON.stringify(loginData),
                 credentials: "include"
             });
 
@@ -39,10 +47,10 @@ function StudentLogin() {
                     navigate("/", { replace: true });
                 }
             } else {
-                setError(data.error || "Login failed ❌");
+                setError(data.error || "Invalid Credentials ❌");
             }
-        } catch (err) {
-            console.error("Login Error:", err);
+        } catch (error) {
+            console.error("Login Error:", error);
             setError("Server connection failed ⚠️");
         } finally {
             setLoading(false);

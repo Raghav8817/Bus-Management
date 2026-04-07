@@ -64,18 +64,25 @@ function Signup() {
 
         const newUser = {
             role,
-            fullName,
-            password,
-            busId: role === "student" ? studentBusId : busId,
-            course: role === "student" ? course : null,
-            branchSem: role === "student" ? branchSem : null,
-            contact: role === "student" ? studentContact : (role === "driver" ? driverContact : null),
-            email: role === "student" ? studentEmail : (role === "management" ? managementEmail : null),
+            fullName,      // Backend expects 'fullName'
+            password,      // Backend expects 'password'
+            email: role === "student" ? studentEmail : managementEmail,
+            contact: role === "student" ? studentContact : driverContact,
             address: role === "student" ? studentAddress : (role === "driver" ? driverAddress : managementAddress),
-            driverId: role === "driver" ? driverId : null,
-            busNumber: role === "driver" ? busNumber : null,
-            managementId: role === "management" ? managementId : null
-        }
+
+            // --- STUDENT SPECIFIC ---
+            studentBusId: studentBusId, // Match Backend 'studentBusId'
+            course: course,
+            branchSem: branchSem,       // Match Backend 'branchSem'
+
+            // --- DRIVER SPECIFIC ---
+            driverId: driverId,
+            busId: busId,               // This is for the Driver's Bus ID
+            busNumber: busNumber,
+
+            // --- MANAGEMENT SPECIFIC ---
+            managementId: managementId
+        };
 
         try {
             // FIXED: Using template literal with BASE_URL

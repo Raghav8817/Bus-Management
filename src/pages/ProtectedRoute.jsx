@@ -18,7 +18,8 @@ const ProtectedRoute = () => {
 
                 if (res.ok) {
                     const data = await res.json();
-                    setAuth({ isAuth: true, role: data.role });
+                    // Use data.isAuth to match your app.js response
+                    setAuth({ isAuth: data.isAuth, role: data.role });
                 } else {
                     setAuth({ isAuth: false, role: null });
                 }

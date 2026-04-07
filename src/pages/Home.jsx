@@ -2,32 +2,28 @@ import { Bell, AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import BottomNav from "./BottomNav"
-
+import LiveTracking from "./LiveTracking"
 function Home() {
     const navigate = useNavigate()
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
     const [trackingData, setTrackingData] = useState({
-        arrivalTime: 20,
-        distance: 2.8
+        arrivalTime: "Calculating...",
+        distance: "..."
     })
 
-    // --- DYNAMIC URL SETUP ---
     const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const GOOGLE_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
 
     useEffect(() => {
         const fetchStudentData = async () => {
             try {
-                // FIXED: Now uses the dynamic BASE_URL for live/local compatibility
-                const res = await fetch(`${BASE_URL}/user-data`, {
-                    credentials: "include"
-                });
+                const res = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
                 const data = await res.json();
-
                 if (res.ok) {
                     setUser(data);
-                } else {
-                    console.error("Failed to fetch user data:", data.error);
+                    // Once user is loaded, start tracking the bus
+                    startLiveTracking(data.bus_id);
                 }
             } catch (error) {
                 console.error("Fetch error:", error);
@@ -36,13 +32,50 @@ function Home() {
             }
         };
 
-        fetchStudentData();
+        const startLiveTracking = (busId) => {
+            if (!busId) return;
 
-        const storedTracking = JSON.parse(localStorage.getItem("trackingData"))
-        if (storedTracking) {
-            setTrackingData(storedTracking)
-        }
-    }, [navigate, BASE_URL]); // Added BASE_URL to dependency array
+            // Update every 30 seconds
+            const interval = setInterval(async () => {
+                try {
+                    // 1. Get Student's Current Location
+                    navigator.geolocation.getCurrentPosition(async (position) => {
+                        const studentLoc = `${position.coords.latitude},${position.coords.longitude}`;
+
+                        // 2. Get Bus Location from your Backend
+                        const busRes = await fetch(`${BASE_URL}/api/bus-location/${busId}`, { credentials: "include" });
+                        const busData = await busRes.json();
+
+                        if (busData.latitude && busData.longitude) {
+                            const busLoc = `${busData.latitude},${busData.longitude}`;
+
+                            // 3. Call Google Distance Matrix (Better to do this on Backend to hide API Key)
+                            const googleRes = await fetch(
+                                `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${busLoc}&destinations=${studentLoc}&key=${GOOGLE_KEY}`
+                            );
+                            const gData = await googleRes.json();
+
+                            if (gData.rows[0].elements[0].status === "OK") {
+                                const element = gData.rows[0].elements[0];
+                                setTrackingData({
+                                    arrivalTime: Math.round(element.duration.value / 60), // Duration in minutes
+                                    distance: (element.distance.value / 1000).toFixed(1) // Distance in km
+                                });
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error("Tracking failed", e);
+                }
+            }, 30000);
+
+            return () => clearInterval(interval);
+        };
+
+        fetchStudentData();
+    }, [BASE_URL]);
+
+// ... (Loading and Error UI remains same as your code)
 
     if (loading) {
         return (
