@@ -1,4 +1,4 @@
-import { Bell, AlertTriangle } from "lucide-react"
+import { Bell, AlertTriangle, X } from "lucide-react"
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import BottomNav from "./BottomNav"
@@ -25,11 +25,16 @@ function Home() {
     const [tripActive, setTripActive] = useState(false)
     const [trackingData, setTrackingData] = useState({ arrivalTime: null, distance: null })
     const [autoAttendanceMsg, setAutoAttendanceMsg] = useState("")
+    
+    // Notifications State
+    const [notifications, setNotifications] = useState([])
+    const [showNotifications, setShowNotifications] = useState(false)
+    const [hasUnread, setHasUnread] = useState(false)
 
     // Prevent double-logging attendance in one session
     const attendanceLoggedRef = useRef(false)
 
-    // ── Fetch student profile once ──────────────────────────────────────────
+    // ── Fetch student profile ──────────────────────────────────────────
     useEffect(() => {
         const fetchStudentData = async () => {
             try {
@@ -45,30 +50,52 @@ function Home() {
         fetchStudentData()
     }, [])
 
+    // ── Fetch Notifications ───────────────────────────────────────────────
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const res = await fetch(`${BASE_URL}/api/notifications`, { credentials: "include" })
+                if (res.ok) {
+                    const data = await res.json()
+                    setNotifications(data)
+                    
+                    // Check for unread
+                    const lastSeenId = localStorage.getItem("lastSeenNotificationId")
+                    if (data.length > 0 && (!lastSeenId || data[0].id > parseInt(lastSeenId))) {
+                        setHasUnread(true)
+                    }
+                }
+            } catch (err) {
+                console.error("Notifications fetch error:", err)
+            }
+        }
+        fetchNotifications()
+    }, [user])
+
+    const handleBellClick = () => {
+        setShowNotifications(true)
+        setHasUnread(false)
+        if (notifications.length > 0) {
+            localStorage.setItem("lastSeenNotificationId", notifications[0].id.toString())
+        }
+    }
+
     // ── Poll trip status + location every 5 seconds ─────────────────────────
     useEffect(() => {
-        if (!user?.bus_id) return
+        if (!user?.bus_id || user.bus_id === "N/A") return
 
         const poll = async () => {
             try {
-                // 1. Check if driver has started the trip
-                const tripRes = await fetch(
-                    `${BASE_URL}/api/trip-status/${user.bus_id}`,
-                    { credentials: "include" }
-                )
+                const tripRes = await fetch(`${BASE_URL}/api/trip-status/${user.bus_id}`, { credentials: "include" })
                 const tripData = await tripRes.json()
                 setTripActive(tripData.active)
 
                 if (!tripData.active) {
                     setTrackingData({ arrivalTime: null, distance: null })
-                    return // No need to track if trip not started
+                    return
                 }
 
-                // 2. Get bus location
-                const busRes = await fetch(
-                    `${BASE_URL}/api/bus-location/${user.bus_id}`,
-                    { credentials: "include" }
-                )
+                const busRes = await fetch(`${BASE_URL}/api/bus-location/${user.bus_id}`, { credentials: "include" })
                 if (!busRes.ok) return
                 const busData = await busRes.json()
 
@@ -76,7 +103,6 @@ function Home() {
                 const bLon = parseFloat(busData.longitude)
                 if (isNaN(bLat) || isNaN(bLon)) return
 
-                // 3. Get student's GPS
                 navigator.geolocation.getCurrentPosition(async (pos) => {
                     const sLat = pos.coords.latitude
                     const sLon = pos.coords.longitude
@@ -84,10 +110,9 @@ function Home() {
 
                     setTrackingData({
                         distance: d.toFixed(1),
-                        arrivalTime: Math.round(d * 2.4) // ~25 km/h avg
+                        arrivalTime: Math.round(d * 2.4)
                     })
 
-                    // 4. Auto-attendance if within 300 m and not yet logged
                     if (d < 0.3 && !attendanceLoggedRef.current) {
                         attendanceLoggedRef.current = true
                         const hour = new Date().getHours()
@@ -103,14 +128,12 @@ function Home() {
                             })
                             const attData = await attRes.json()
                             if (!attData.alreadyMarked) {
-                                setAutoAttendanceMsg(
-                                    `✅ ${type.charAt(0).toUpperCase() + type.slice(1)} attendance auto-logged!`
-                                )
+                                setAutoAttendanceMsg(`✅ ${type.charAt(0).toUpperCase() + type.slice(1)} attendance auto-logged!`)
                                 setTimeout(() => setAutoAttendanceMsg(""), 6000)
                             }
                         } catch (err) {
                             console.error("Auto-attendance failed:", err)
-                            attendanceLoggedRef.current = false // allow retry
+                            attendanceLoggedRef.current = false
                         }
                     }
                 })
@@ -119,38 +142,28 @@ function Home() {
             }
         }
 
-        poll() // run immediately
+        poll()
         const interval = setInterval(poll, 5000)
         return () => clearInterval(interval)
     }, [user])
 
-    // ── Loading & error states ──────────────────────────────────────────────
-    if (loading) {
-        return (
-            <div className="h-screen flex items-center justify-center bg-black text-white font-mono">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mb-4 mx-auto" />
-                    <p className="text-xl">Loading Student Profile...</p>
-                </div>
+    if (loading) return (
+        <div className="h-screen flex items-center justify-center bg-black text-white font-mono">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mb-4 mx-auto" />
+                <p className="text-xl">Loading Student Profile...</p>
             </div>
-        )
-    }
+        </div>
+    )
 
-    if (!user) {
-        return (
-            <div className="h-screen flex items-center justify-center bg-red-900 text-white p-6 text-center">
-                <div>
-                    <p className="mb-4 text-lg font-bold">Failed to load profile.</p>
-                    <button
-                        onClick={() => navigate("/login")}
-                        className="bg-white text-red-900 px-6 py-2 rounded-full font-bold"
-                    >
-                        Return to Login
-                    </button>
-                </div>
+    if (!user) return (
+        <div className="h-screen flex items-center justify-center bg-red-900 text-white p-6 text-center">
+            <div>
+                <p className="mb-4 text-lg font-bold">Failed to load profile.</p>
+                <button onClick={() => navigate("/login")} className="bg-white text-red-900 px-6 py-2 rounded-full font-bold">Return to Login</button>
             </div>
-        )
-    }
+        </div>
+    )
 
     const firstName = user.full_name?.split(" ")[0] || "Student"
     const hour = new Date().getHours()
@@ -160,6 +173,32 @@ function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-black relative pb-20">
+            
+            {/* Notification Slide Panel */}
+            <div className={`fixed inset-0 z-[100] transition-all duration-300 ${showNotifications ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNotifications(false)} />
+                <div className={`absolute right-0 top-0 bottom-0 w-[85%] bg-[#1a1a1a] shadow-2xl transition-transform duration-300 ${showNotifications ? 'translate-x-0' : 'translate-x-full'} overflow-hidden flex flex-col`}>
+                    <div className="bg-yellow-400 p-6 flex justify-between items-center shadow-lg">
+                        <h2 className="text-black font-black text-xl uppercase tracking-widest">Alerts & News</h2>
+                        <button onClick={() => setShowNotifications(false)} className="bg-black text-white p-2 rounded-full active:scale-95 transition-transform"><X size={24} /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 pt-6">
+                        {notifications.length === 0 ? (
+                            <div className="text-center py-20 text-white/40 font-bold uppercase tracking-widest">No new alerts</div>
+                        ) : (
+                            notifications.map(notif => (
+                                <div key={notif.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-lg">
+                                    <h3 className="text-yellow-400 font-bold text-lg mb-1">{notif.title}</h3>
+                                    <p className="text-white/80 text-sm mb-3">{notif.message}</p>
+                                    <span className="text-[10px] text-white/30 font-bold uppercase">
+                                        {new Date(notif.created_at).toLocaleDateString()}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
 
             {/* Auto-attendance toast */}
             {autoAttendanceMsg && (
@@ -177,7 +216,7 @@ function Home() {
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <img
-                            src={user.profileImage || "/profile.png"}
+                            src={user.profile_image || "/profile.png"}
                             alt="profile"
                             onClick={() => navigate("/account")}
                             className="w-12 h-12 rounded-full cursor-pointer object-cover border-2 border-white shadow-md"
@@ -191,9 +230,11 @@ function Home() {
                             </p>
                         </div>
                     </div>
-                    <div className="relative mr-2 cursor-pointer">
+                    <div className="relative mr-2 cursor-pointer" onClick={handleBellClick}>
                         <Bell size={32} />
-                        <span className="absolute top-0 right-0 w-3 h-3 bg-red-600 rounded-full border-2 border-white" />
+                        {hasUnread && (
+                            <span className="absolute top-0 right-0 w-3 h-3 bg-red-600 rounded-full border-2 border-white animate-pulse" />
+                        )}
                     </div>
                 </div>
 
@@ -245,9 +286,11 @@ function Home() {
                         <div className="flex items-center gap-3 mt-1 py-2">
                             <span className="text-3xl">🚌</span>
                             <div>
-                                <p className="text-xl font-black text-gray-800">Trip not started yet</p>
+                                <p className="text-xl font-black text-gray-800">
+                                    {(user.bus_id && user.bus_id !== "N/A") ? "Trip not started yet" : "Please Select Your Bus"}
+                                </p>
                                 <p className="text-xs text-black/60 font-medium">
-                                    Waiting for the driver to begin...
+                                    {(user.bus_id && user.bus_id !== "N/A") ? "Waiting for the driver to begin..." : "Update your Bus ID in Account settings"}
                                 </p>
                             </div>
                         </div>
@@ -283,10 +326,9 @@ function Home() {
 
                 {/* SOS Button */}
                 <div className="absolute right-6 top-64 z-50">
-                    <div className="absolute inset-0 bg-red-600 rounded-full blur-2xl opacity-50" />
                     <button
                         onClick={() => navigate("/sos")}
-                        className="relative bg-red-600 text-white w-20 h-20 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
+                        className="bg-red-600 text-white w-20 h-20 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
                     >
                         <AlertTriangle size={36} />
                     </button>
@@ -339,18 +381,8 @@ function Home() {
                 </button>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <button
-                        onClick={() => navigate("/complaint")}
-                        className="bg-zinc-800 text-white py-4 rounded-2xl font-bold border border-zinc-700 active:bg-zinc-700"
-                    >
-                        COMPLAINTS
-                    </button>
-                    <button
-                        onClick={() => navigate("/suggestions")}
-                        className="bg-zinc-800 text-white py-4 rounded-2xl font-bold border border-zinc-700 active:bg-zinc-700"
-                    >
-                        SUGGESTIONS
-                    </button>
+                    <button onClick={() => navigate("/complaint")} className="bg-zinc-800 text-white py-4 rounded-2xl font-bold border border-zinc-700 active:bg-zinc-700">COMPLAINTS</button>
+                    <button onClick={() => navigate("/suggestions")} className="bg-zinc-800 text-white py-4 rounded-2xl font-bold border border-zinc-700 active:bg-zinc-700">SUGGESTIONS</button>
                 </div>
             </div>
 

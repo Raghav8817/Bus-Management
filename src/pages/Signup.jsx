@@ -187,9 +187,9 @@ function Signup() {
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
+                                    className="bg-black text-white px-6 rounded-[22px] text-sm font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20 active:scale-95 transition-all"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RESEND" : "SEND OTP")}
                                 </button>
                             </div>
                         </>
@@ -204,9 +204,9 @@ function Signup() {
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
+                                    className="bg-black text-white px-6 rounded-[22px] text-sm font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20 active:scale-95 transition-all"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RESEND" : "SEND OTP")}
                                 </button>
                             </div>
                         </>
@@ -220,9 +220,9 @@ function Signup() {
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
+                                    className="bg-black text-white px-6 rounded-[22px] text-sm font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20 active:scale-95 transition-all"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RESEND" : "SEND OTP")}
                                 </button>
                             </div>
                         </>

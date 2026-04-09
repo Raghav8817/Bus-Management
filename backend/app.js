@@ -194,17 +194,23 @@ app.get('/api/management/attendance/bus/:busNumber', verifyAdmin, (req, res) => 
     });
 });
 
-// --- NEW: SITE CONFIG ---
-app.get('/api/site-config', (req, res) => {
-    db.query("SELECT * FROM site_config", (err, results) => {
-        if (err) return res.status(500).json({ error: "Database error" });
-        const config = {};
-        results.forEach(row => {
-            config[row.config_key] = row.config_value;
-        });
-        res.json(config);
+// --- NEW: FETCH NOTIFICATIONS ---
+app.get('/api/notifications', verifyAdmin, (req, res) => {
+    const { role } = req.user;
+    
+    // Fetch notifications where role is 'all' or matches user's specific role
+    const sql = "SELECT * FROM notifications WHERE role = 'all' OR role = ? ORDER BY created_at DESC LIMIT 20";
+    
+    db.query(sql, [role], (err, results) => {
+        if (err) {
+            console.error("Fetch Notifications Error:", err);
+            return res.status(500).json({ error: "Database error" });
+        }
+        res.json(results);
     });
 });
+
+// --- NEW: SITE CONFIG ---
 
 // --- SIGNUP ---
 // --- SIGNUP (SECURE) ---
