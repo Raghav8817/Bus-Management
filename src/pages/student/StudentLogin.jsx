@@ -11,19 +11,15 @@ function StudentLogin() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // --- DYNAMIC URL SETUP ---
-    // If VITE_API_URL is set in Vercel, it uses that. Otherwise, it defaults to localhost.
     const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     const handleLogin = async () => {
         setError("");
         setLoading(true);
 
-        // Dynamic payload based on role
         const loginData = {
             role,
             password,
-            // If student, use 'email_id'. Otherwise, use 'id'.
             [role === "student" ? "email_id" : "id"]: id,
             bus_id: busNumber
         };
@@ -58,7 +54,7 @@ function StudentLogin() {
     };
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-800 via-gray-900 to-yellow-400">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-800 via-gray-900 to-yellow-400 font-sans">
             {/* Background Decoration */}
             <div
                 className="absolute inset-0 bg-yellow-400"
@@ -69,7 +65,7 @@ function StudentLogin() {
 
             <div className="relative z-10 px-6 py-10 flex flex-col min-h-screen">
                 {/* Logo Section */}
-                <div className="flex justify-center mb-12">
+                <div className="flex justify-center mb-8">
                     <img
                         src="/wctm-logo.png"
                         alt="WCTM Logo"
@@ -77,63 +73,65 @@ function StudentLogin() {
                     />
                 </div>
 
+                <h1 className="text-center text-white font-black text-2xl mb-8 tracking-widest uppercase">
+                    WCTM Transport
+                </h1>
+
                 {/* Form Card */}
-                <div className="bg-white border border-black rounded-2xl p-6 shadow-md max-w-md mx-auto w-full">
-                    <h2 className="text-xl font-bold mb-6 text-center text-gray-800">
-                        {role.toUpperCase()} LOGIN
+                <div className="bg-white border-2 border-black rounded-2xl p-8 shadow-[0_10px_30px_rgba(0,0,0,0.3)] max-w-md mx-auto w-full">
+                    <h2 className="text-xl font-black mb-8 text-center text-gray-800 uppercase tracking-widest border-b-2 border-gray-100 pb-4">
+                        {role} Login
                     </h2>
 
-                    <input
-                        type="text"
-                        placeholder={
-                            role === "student"
-                                ? "Student Email"
-                                : role === "driver"
-                                    ? "Driver ID"
-                                    : "Management ID"
-                        }
-                        value={id}
-                        onChange={(e) => setId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 mb-4 outline-none focus:border-cyan-500 transition-colors"
-                    />
-
-                    {role === "driver" && (
+                    <div className="space-y-4">
                         <input
                             type="text"
-                            placeholder="Bus Number"
-                            value={busNumber}
-                            onChange={(e) => setBusNumber(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-3 mb-4 outline-none focus:border-cyan-500 transition-colors"
+                            placeholder={
+                                role === "student" ? "Registered Email" : 
+                                role === "driver" ? "Driver ID" : "Management ID"
+                            }
+                            value={id}
+                            onChange={(e) => setId(e.target.value)}
+                            className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
                         />
-                    )}
 
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 mb-2 outline-none focus:border-cyan-500 transition-colors"
-                    />
+                        {role === "driver" && (
+                            <input
+                                type="text"
+                                placeholder="Bus Number"
+                                value={busNumber}
+                                onChange={(e) => setBusNumber(e.target.value)}
+                                className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
+                            />
+                        )}
 
-                    {error && (
-                        <p className="text-red-500 text-sm mb-3 text-center font-medium">
-                            {error}
-                        </p>
-                    )}
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
+                        />
 
-                    <button
-                        onClick={handleLogin}
-                        disabled={loading}
-                        className={`w-full bg-cyan-500 hover:bg-cyan-600 text-white py-3 rounded-lg font-semibold shadow-md transition-all ${loading ? "opacity-70 cursor-not-allowed" : ""
-                            }`}
-                    >
-                        {loading ? "Verifying..." : `${role.charAt(0).toUpperCase() + role.slice(1)} Login`}
-                    </button>
+                        {error && (
+                            <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest bg-red-50 py-2 rounded-lg">
+                                {error}
+                            </p>
+                        )}
+
+                        <button
+                            onClick={handleLogin}
+                            disabled={loading}
+                            className={`w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
+                        >
+                            {loading ? "Verifying..." : "Sign In"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Role Switcher */}
                 <div className="mt-auto max-w-md mx-auto w-full">
-                    <div className="flex justify-between border border-white rounded-full p-1 mb-6 backdrop-blur-sm">
+                    <div className="flex justify-between border-2 border-white rounded-full p-1 mb-6 backdrop-blur-sm bg-black/10">
                         {["student", "driver", "management"].map((r) => (
                             <button
                                 key={r}
@@ -141,23 +139,23 @@ function StudentLogin() {
                                     setRole(r);
                                     setError("");
                                 }}
-                                className={`flex-1 py-2 rounded-full font-medium transition-all duration-300 ${role === r
+                                className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${role === r
                                     ? "bg-cyan-500 text-white shadow-lg"
                                     : "text-white hover:bg-white/10"
                                     }`}
                             >
-                                {r.charAt(0).toUpperCase() + r.slice(1)}
+                                {r}
                             </button>
                         ))}
                     </div>
 
-                    <div className="text-center text-sm text-white pb-4">
-                        Don’t have an account?{" "}
+                    <div className="text-center text-xs text-white font-bold pb-4 uppercase tracking-widest">
+                        New User?{" "}
                         <span
                             onClick={() => navigate("/signup")}
-                            className="text-cyan-400 font-bold cursor-pointer hover:underline"
+                            className="text-cyan-400 font-black cursor-pointer hover:underline"
                         >
-                            Sign Up
+                            Register Here
                         </span>
                     </div>
                 </div>

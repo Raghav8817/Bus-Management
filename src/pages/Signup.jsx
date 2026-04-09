@@ -1,14 +1,17 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
-const Input = ({ type = "text", placeholder, value, setValue }) => (
-    <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition"
-    />
+const Input = ({ type = "text", placeholder, value, setValue, error }) => (
+    <div className="w-full">
+        <input
+            type={type}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className={`w-full border ${error ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition`}
+        />
+        {error && <p className="text-[10px] text-red-500 font-bold mt-1 ml-2 uppercase">{error}</p>}
+    </div>
 )
 
 function Signup() {
@@ -18,6 +21,7 @@ function Signup() {
     const [fullName, setFullName] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
+    const [fieldErrors, setFieldErrors] = useState({})
 
     const [studentBusId, setStudentBusId] = useState("")
     const [course, setCourse] = useState("")
@@ -36,56 +40,41 @@ function Signup() {
     const [managementEmail, setManagementEmail] = useState("")
     const [managementAddress, setManagementAddress] = useState("")
 
-    // --- DYNAMIC URL SETUP ---
     const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+    const validate = () => {
+        const errors = {};
+        if (!fullName) errors.fullName = "Required";
+        if (!password || password.length < 6) errors.password = "Min 6 chars";
+        if (role === 'student') {
+            if (!studentEmail) errors.studentEmail = "Required";
+            if (!studentBusId) errors.studentBusId = "Required";
+        }
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    }
 
     const handleSignup = async () => {
         setError("")
-
-        if (!fullName || !password) {
-            setError("Please fill required fields")
-            return
-        }
-
-        if (role === "student" && (!studentBusId || !course || !branchSem || !studentContact || !studentEmail || !studentAddress)) {
-            setError("All student fields are required")
-            return
-        }
-
-        if (role === "driver" && (!busId || !driverId || !busNumber || !driverContact || !driverAddress)) {
-            setError("All driver fields are required")
-            return
-        }
-
-        if (role === "management" && (!managementId || !managementEmail || !managementAddress)) {
-            setError("All management fields are required")
-            return
-        }
+        if (!validate()) return;
 
         const newUser = {
             role,
-            fullName,      // Backend expects 'fullName'
-            password,      // Backend expects 'password'
+            fullName,
+            password,
             email: role === "student" ? studentEmail : managementEmail,
             contact: role === "student" ? studentContact : driverContact,
             address: role === "student" ? studentAddress : (role === "driver" ? driverAddress : managementAddress),
-
-            // --- STUDENT SPECIFIC ---
-            studentBusId: studentBusId, // Match Backend 'studentBusId'
-            course: course,
-            branchSem: branchSem,       // Match Backend 'branchSem'
-
-            // --- DRIVER SPECIFIC ---
-            driverId: driverId,
-            busId: busId,               // This is for the Driver's Bus ID
-            busNumber: busNumber,
-
-            // --- MANAGEMENT SPECIFIC ---
-            managementId: managementId
+            studentBusId,
+            course,
+            branchSem,
+            driverId,
+            busId,
+            busNumber,
+            managementId
         };
 
         try {
-            // FIXED: Using template literal with BASE_URL
             const response = await fetch(`${BASE_URL}/signup`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -101,11 +90,11 @@ function Signup() {
                 else if (role === "driver") navigate("/driver-dashboard")
                 else navigate("/management-dashboard")
             } else {
-                setError(result.error || "Server Error at Signup")
+                setError(result.error || "Signup failed");
             }
         } catch (error) {
             console.error(error);
-            setError("Internal Server Error. Is the backend running?");
+            setError("Server connection failed");
         }
     }
 
@@ -118,9 +107,8 @@ function Signup() {
                     {["student", "driver", "management"].map((r) => (
                         <button
                             key={r}
-                            onClick={() => setRole(r)}
-                            className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${role === r ? "bg-yellow-400 text-black shadow-md" : "text-gray-600"
-                                }`}
+                            onClick={() => { setRole(r); setFieldErrors({}); }}
+                            className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${role === r ? "bg-yellow-400 text-black shadow-md" : "text-gray-600"}`}
                         >
                             {r.charAt(0).toUpperCase() + r.slice(1)}
                         </button>
@@ -128,49 +116,51 @@ function Signup() {
                 </div>
 
                 <div className="space-y-4">
+                    <Input placeholder="Full Name" value={fullName} setValue={setFullName} error={fieldErrors.fullName} />
+
                     {role === "student" && (
                         <>
-                            <Input placeholder="Full Name" value={fullName} setValue={setFullName} />
-                            <Input placeholder="Bus ID" value={studentBusId} setValue={setStudentBusId} />
+                            <Input placeholder="Bus Number (Assigned)" value={studentBusId} setValue={setStudentBusId} error={fieldErrors.studentBusId} />
                             <Input placeholder="Course" value={course} setValue={setCourse} />
                             <Input placeholder="Branch + Semester" value={branchSem} setValue={setBranchSem} />
                             <Input placeholder="Contact Number" value={studentContact} setValue={setStudentContact} />
-                            <Input placeholder="Email ID" value={studentEmail} setValue={setStudentEmail} />
+                            <Input placeholder="Email ID" value={studentEmail} setValue={setStudentEmail} error={fieldErrors.studentEmail} />
                             <Input placeholder="Address" value={studentAddress} setValue={setStudentAddress} />
-                            <Input type="password" placeholder="Password" value={password} setValue={setPassword} />
                         </>
                     )}
 
                     {role === "driver" && (
                         <>
-                            <Input placeholder="Full Name" value={fullName} setValue={setFullName} />
                             <Input placeholder="Driver ID" value={driverId} setValue={setDriverId} />
                             <Input placeholder="Bus ID" value={busId} setValue={setBusId} />
                             <Input placeholder="Bus Number" value={busNumber} setValue={setBusNumber} />
                             <Input placeholder="Contact Number" value={driverContact} setValue={setDriverContact} />
                             <Input placeholder="Address" value={driverAddress} setValue={setDriverAddress} />
-                            <Input type="password" placeholder="Password" value={password} setValue={setPassword} />
                         </>
                     )}
 
                     {role === "management" && (
                         <>
                             <Input placeholder="Management ID" value={managementId} setValue={setManagementId} />
-                            <Input placeholder="Full Name" value={fullName} setValue={setFullName} />
                             <Input placeholder="Email ID" value={managementEmail} setValue={setManagementEmail} />
                             <Input placeholder="Address" value={managementAddress} setValue={setManagementAddress} />
-                            <Input type="password" placeholder="Password" value={password} setValue={setPassword} />
                         </>
                     )}
 
-                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                    <Input type="password" placeholder="Password" value={password} setValue={setPassword} error={fieldErrors.password} />
+
+                    {error && <p className="text-red-500 text-sm text-center font-bold">{error}</p>}
 
                     <button
                         onClick={handleSignup}
-                        className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-3 rounded-xl font-semibold transition"
+                        className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-3 rounded-xl font-bold transition shadow-lg active:scale-95"
                     >
                         Sign Up
                     </button>
+
+                    <p className="text-center text-gray-500 text-xs mt-4">
+                        Already have an account? <span onClick={() => navigate("/login")} className="text-yellow-600 font-bold cursor-pointer hover:underline">Log In</span>
+                    </p>
                 </div>
             </div>
         </div>

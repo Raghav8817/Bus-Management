@@ -47,7 +47,7 @@ function AttendanceTemplate({ type }) {
             return
         }
 
-        const key = `${year}-${month + 1}-${todayDate}`
+        const key = today.toISOString().split('T')[0]
 
         const updatedAttendance = {
             ...attendance,
@@ -80,7 +80,9 @@ function AttendanceTemplate({ type }) {
     }
 
     const getStatusColor = (day) => {
-        const key = `${year}-${month}-${day}`
+        const paddedMonth = String(month + 1).padStart(2, '0')
+        const paddedDay = String(day).padStart(2, '0')
+        const key = `${year}-${paddedMonth}-${paddedDay}`
         const status = attendance[key]
 
         if (status === "present") return "bg-green-500 text-black"

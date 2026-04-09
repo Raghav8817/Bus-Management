@@ -69,9 +69,9 @@ function App() {
         <Route path="/management-dashboard" element={<ManagementDashboard />} />
         <Route path="/management" element={<ManaDashboard />} />
         <Route path="/drivers" element={<ManagementDrivers />} />
-        <Route path="/driver-details/:busNumber" element={<DriverDetails />} />
+        <Route path="/driver-details/:busId" element={<DriverDetails />} />
         <Route path="/routes" element={<ManagementRoutes />} />
-        <Route path="/route-details/:busNumber" element={<RouteDetails />} />
+        <Route path="/route-details/:busId" element={<RouteDetails />} />
         <Route path="/reports" element={<ManagementReports />} />
         <Route path="/attendance-reports" element={<AttendanceReports />} />
         <Route path="/bus-attendance-report/:busId" element={<BusAttendanceReportDetails />} />
@@ -88,7 +88,7 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/info" element={<InfoPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
-        <Route path="/busattendance/:busNumber" element={<BusAttendanceDetails />} />
+        <Route path="/busattendance/:busId" element={<BusAttendanceDetails />} />
 
         {/* 2. Student Routes (Wrapped in Layout) */}
         {/* Layout's <Outlet /> will render the sub-routes below */}

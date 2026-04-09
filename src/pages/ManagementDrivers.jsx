@@ -206,7 +206,7 @@ function ManagementDrivers() {
                     Reports
                 </button>
 
-                <button onClick={() => navigate("/managementpanel")}>
+                <button onClick={() => navigate("/management")}>
                     Management
                 </button>
 

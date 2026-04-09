@@ -5,15 +5,31 @@ const cors = require('cors');
 const db = require('./config/db');
 const jwt = require("jsonwebtoken");
 const cookieparser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
+const saltRounds = 10;
 
 // 1. DYNAMIC CORS: Replace with your actual Vercel URL
 app.use(cors({
-    origin: ["http://localhost:5173", "https://bus-management-sooty.vercel.app"],
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            "http://localhost:5173", 
+            "http://localhost:3000",
+            process.env.FRONTEND_URL
+        ];
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("CORS: Not allowed - " + origin));
+        }
+    },
     credentials: true
 }));
 
 app.use(express.json());
 app.use(cookieparser());
+
+// ── In-memory trip status store (busId → { active, updatedAt }) ─────────────
+const tripStatusStore = new Map();
 
 // --- AUTH MIDDLEWARE (Put this above your routes) ---
 const verifyAdmin = (req, res, next) => {
@@ -40,10 +56,9 @@ const verifyAdmin = (req, res, next) => {
 // Helper for dynamic cookie settings based on environment
 const cookieOptions = {
     httpOnly: true,
-    // If not in production, secure must be false for localhost to accept it
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    path: '/', // Critical: ensures the cookie is sent for all routes like /verify
+    secure: true, // Always true for cross-site cookies on Render/Vercel
+    sameSite: 'none', // Required for cross-domain cookies
+    path: '/',
     maxAge: 86400000
 };
 // --- AUTH VERIFICATION ---
@@ -82,8 +97,92 @@ app.get('/user-data', verifyAdmin, (req, res) => {
     });
 });
 
+// --- UPDATE USER PROFILE DATA ---
+app.put('/api/user-data', verifyAdmin, (req, res) => {
+    const { id, role } = req.user;
+    const { fullName, busId, course, branchSem, contact, address, profileImage } = req.body;
+
+    let sql = "";
+    let params = [];
+
+    if (role === 'student') {
+        sql = `UPDATE students SET 
+                full_name = ?, bus_id = ?, course = ?, branch_semester = ?, 
+                contact_number = ?, address = ?, profile_image = ? 
+               WHERE email_id = ?`;
+        params = [fullName, busId, course, branchSem, contact, address, profileImage, id];
+    } else if (role === 'driver') {
+        sql = `UPDATE drivers SET 
+                full_name = ?, bus_id = ?, bus_number = ?, contact_number = ?, 
+                address = ?, profile_image = ? 
+               WHERE driver_id = ?`;
+        // In the Account form for drivers, we might use busId as the physical number or ID
+        params = [fullName, busId, busId, contact, address, profileImage, id];
+    } else if (role === 'management') {
+        sql = `UPDATE management SET 
+                full_name = ?, address = ?, profile_image = ? 
+               WHERE management_id = ?`;
+        params = [fullName, address, profileImage, id];
+    } else {
+        return res.status(400).json({ error: "Invalid role" });
+    }
+
+    db.query(sql, params, (err, result) => {
+        if (err) {
+            console.error("Update Error:", err);
+            return res.status(500).json({ error: "Database update failed" });
+        }
+        res.json({ message: "Profile updated successfully" });
+    });
+});
+
+// --- NEW: FETCH SPECIFIC USER DETAIL ---
+app.get('/api/management/user/:role/:userId', verifyAdmin, (req, res) => {
+    const { role, userId } = req.params;
+    let sql = "";
+    if (role === 'student') sql = "SELECT * FROM students WHERE email_id = ?";
+    else if (role === 'driver') sql = "SELECT * FROM drivers WHERE driver_id = ?";
+    else return res.status(400).json({ error: "Invalid role" });
+
+    db.query(sql, [userId], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        if (results.length > 0) res.json(results[0]);
+        else res.status(404).json({ error: "User not found" });
+    });
+});
+
+// --- NEW: FETCH ATTENDANCE BY BUS ---
+app.get('/api/management/attendance/bus/:busNumber', verifyAdmin, (req, res) => {
+    const { busNumber } = req.params;
+    // Joining with students to get names of those who boarded
+    const sql = `
+        SELECT a.*, s.full_name 
+        FROM attendance a
+        JOIN students s ON a.user_id = s.email_id
+        WHERE s.bus_id = ?
+        ORDER BY a.date_str DESC, a.id DESC
+    `;
+    db.query(sql, [busNumber], (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        res.json(results);
+    });
+});
+
+// --- NEW: SITE CONFIG ---
+app.get('/api/site-config', (req, res) => {
+    db.query("SELECT * FROM site_config", (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        const config = {};
+        results.forEach(row => {
+            config[row.config_key] = row.config_value;
+        });
+        res.json(config);
+    });
+});
+
 // --- SIGNUP ---
-app.post('/signup', (req, res) => {
+// --- SIGNUP (SECURE) ---
+app.post('/signup', async (req, res) => {
     const {
         role, fullName, password, email, contact, address,
         studentBusId, course, branchSem,
@@ -91,40 +190,64 @@ app.post('/signup', (req, res) => {
         managementId
     } = req.body;
 
-    let sql = "";
-    let values = [];
-    let userIdForToken = ""; // Currently stays empty!
+    try {
+        // 1. Check for basic duplication (User ID / Email)
+        let checkSql = "";
+        let checkVal = "";
+        if (role === 'student') { checkSql = "SELECT * FROM students WHERE email_id = ?"; checkVal = email; }
+        else if (role === 'driver') { checkSql = "SELECT * FROM drivers WHERE driver_id = ?"; checkVal = driverId; }
+        else if (role === 'management') { checkSql = "SELECT * FROM management WHERE management_id = ?"; checkVal = managementId; }
 
-    if (role === "student") {
-        sql = `INSERT INTO students (full_name, bus_id, course, branch_semester, contact_number, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'student')`;
-        values = [fullName, studentBusId, course, branchSem, contact, email, address, password];
-        userIdForToken = email; // ✅ FIX: Assign email to token ID
-    } else if (role === "driver") {
-        sql = `INSERT INTO drivers (full_name, driver_id, bus_id, bus_number, contact_number, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, 'driver')`;
-        values = [fullName, driverId, busId, busNumber, contact, address, password];
-        userIdForToken = driverId; // ✅ FIX: Assign driverId to token ID
-    } else if (role === "management") {
-        sql = `INSERT INTO management (management_id, full_name, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, 'management')`;
-        values = [managementId, fullName, email, address, password];
-        userIdForToken = managementId; // ✅ FIX: Assign managementId to token ID
-    }
-
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error("Signup Error:", err.message);
-            return res.status(500).json({ error: "Database error during signup" });
+        const existingUser = await new Promise((resolve) => db.query(checkSql, [checkVal], (e, r) => resolve(r)));
+        if (existingUser && existingUser.length > 0) {
+            return res.status(400).json({ error: "User ID or Email already registered" });
         }
 
-        // Now userIdForToken actually has a value (e.g., "test@gmail.com")
-        const token = jwt.sign(
-            { id: userIdForToken, role: role },
-            process.env.JWT_SECRET,
-            { expiresIn: "1d" }
-        );
+        // 2. SPECIFIC: Check if Bus is already assigned (Driver Only)
+        if (role === 'driver') {
+            const busCheckSql = "SELECT full_name FROM drivers WHERE bus_id = ? OR bus_number = ?";
+            const assignedDriver = await new Promise((resolve) => db.query(busCheckSql, [busId, busNumber], (e, r) => resolve(r)));
+            if (assignedDriver && assignedDriver.length > 0) {
+                return res.status(400).json({ error: `Bus ${busNumber} is already assigned to driver: ${assignedDriver[0].full_name}` });
+            }
+        }
 
-        res.cookie('authToken', token, cookieOptions);
-        res.status(201).json({ message: "Success", role: role });
-    });
+        // 3. Hash Password
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // 4. Insert
+        let sql = "";
+        let values = [];
+        let userIdForToken = "";
+
+        if (role === "student") {
+            sql = `INSERT INTO students (full_name, bus_id, course, branch_semester, contact_number, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'student')`;
+            values = [fullName, studentBusId, course, branchSem, contact, email, address, hashedPassword];
+            userIdForToken = email;
+        } else if (role === "driver") {
+            sql = `INSERT INTO drivers (full_name, driver_id, bus_id, bus_number, contact_number, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, 'driver')`;
+            values = [fullName, driverId, busId, busNumber, contact, address, hashedPassword];
+            userIdForToken = driverId;
+        } else if (role === "management") {
+            sql = `INSERT INTO management (management_id, full_name, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, 'management')`;
+            values = [managementId, fullName, email, address, hashedPassword];
+            userIdForToken = managementId;
+        }
+
+        db.query(sql, values, (err, result) => {
+            if (err) {
+                console.error("Insert Error:", err.message);
+                return res.status(500).json({ error: "Database error" });
+            }
+            const token = jwt.sign({ id: userIdForToken, role: role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+            res.cookie('authToken', token, cookieOptions);
+            res.status(201).json({ message: "Success", role: role });
+        });
+
+    } catch (err) {
+        console.error("Signup Processing Error:", err);
+        res.status(500).json({ error: "Security processing failed" });
+    }
 });
 // --- LOGIN ---
 // --- LOGIN ---
@@ -140,29 +263,24 @@ app.post('/login', (req, res) => {
     }
 
     let sql = "";
-    if (role === 'student') {
-        sql = "SELECT * FROM students WHERE email_id = ? AND password = ?";
-    } else if (role === 'driver') {
-        sql = "SELECT * FROM drivers WHERE driver_id = ? AND password = ?";
-    } else {
-        sql = "SELECT * FROM management WHERE management_id = ? AND password = ?";
-    }
+    if (role === 'student') sql = "SELECT * FROM students WHERE email_id = ?";
+    else if (role === 'driver') sql = "SELECT * FROM drivers WHERE driver_id = ?";
+    else sql = "SELECT * FROM management WHERE management_id = ?";
 
-    db.query(sql, [identifier, password], (err, results) => {
-        if (err) {
-            console.error("Login DB Error:", err);
-            return res.status(500).json({ error: "Database error" });
-        }
-
+    db.query(sql, [identifier], async (err, results) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        
         if (results.length > 0) {
-            const token = jwt.sign(
-                { id: identifier, role: role },
-                process.env.JWT_SECRET,
-                { expiresIn: "1d" }
-            );
-
-            res.cookie('authToken', token, cookieOptions);
-            res.json({ message: "Login successful", role });
+            const user = results[0];
+            const isMatch = await bcrypt.compare(password, user.password);
+            
+            if (isMatch) {
+                const token = jwt.sign({ id: identifier, role: role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+                res.cookie('authToken', token, cookieOptions);
+                res.json({ message: "Login successful", role });
+            } else {
+                res.status(401).json({ error: "Invalid Credentials" });
+            }
         } else {
             res.status(401).json({ error: "Invalid Credentials" });
         }
@@ -184,6 +302,83 @@ app.get('/api/users', (req, res) => {
     db.query(sql, (err, results) => {
         if (err) return res.status(500).json({ error: "DB Error" });
         res.json(results);
+    });
+});
+
+// ── MANAGEMENT OVERVIEW (Consolidated data for dashboards) ──────────────────
+app.get('/api/management/overview', verifyAdmin, (req, res) => {
+    // Only management can see this
+    if (req.user.role !== 'management') return res.status(403).json({ error: "Unauthorized" });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Complex query: Get drivers + count students + count present students
+    const sql = `
+        SELECT 
+            d.bus_id as busId,
+            d.bus_number as busNumber,
+            d.full_name as fullName,
+            d.contact_number as contact,
+            d.latitude,
+            d.longitude,
+            d.route,
+            d.waypoints,
+            d.last_updated as lastUpdated,
+            (SELECT COUNT(*) FROM students s WHERE s.bus_id = d.bus_id) as totalStudents,
+            (SELECT COUNT(*) FROM attendance a 
+             JOIN students s2 ON s2.email_id = a.user_id 
+             WHERE s2.bus_id = d.bus_id AND a.date_str = ? AND a.status = 'present') as presentStudents
+        FROM drivers d
+    `;
+
+    db.query(sql, [today], (err, buses) => {
+        if (err) {
+            console.error("Overview Query Error:", err);
+            return res.status(500).json({ error: "DB Error" });
+        }
+
+        // Attach in-memory trip statuses
+        const enrichedBuses = buses.map(bus => {
+            const status = tripStatusStore.get(String(bus.busId));
+            return {
+                ...bus,
+                tripActive: status?.active || false,
+                lastTripUpdate: status?.updatedAt || null
+            };
+        });
+
+        // Global stats
+        db.query("SELECT COUNT(*) as total FROM students", (err2, sCount) => {
+            const totalStudentsAll = sCount ? sCount[0].total : 0;
+            const totalPresentAll = enrichedBuses.reduce((sum, b) => sum + b.presentStudents, 0);
+            const ongoingTripsAll = enrichedBuses.filter(b => b.tripActive).length;
+
+            res.json({
+                buses: enrichedBuses,
+                summary: {
+                    totalBuses: enrichedBuses.length,
+                    totalStudents: totalStudentsAll,
+                    totalPresent: totalPresentAll,
+                    totalAbsent: totalStudentsAll - totalPresentAll,
+                    ongoingTrips: ongoingTripsAll
+                }
+            });
+        });
+    });
+});
+
+// Update Driver Route Path & Name
+app.patch('/api/management/driver-route', verifyAdmin, (req, res) => {
+    if (req.user.role !== 'management') return res.status(403).json({ error: "Unauthorized" });
+    const { busId, route, waypoints } = req.body;
+    if (!busId) return res.status(400).json({ error: "Bus ID required" });
+    const sql = "UPDATE drivers SET route = ?, waypoints = ? WHERE bus_id = ?";
+    db.query(sql, [route, JSON.stringify(waypoints), busId], (err, result) => {
+        if (err) {
+            console.error("Update Route Error:", err);
+            return res.status(500).json({ error: "Database error" });
+        }
+        res.json({ message: "Route updated successfully" });
     });
 });
 
@@ -269,6 +464,86 @@ app.post('/api/reports', (req, res) => {
         res.status(200).json({ message: "Saved" });
     });
 });
+// ── TRIP STATUS (Driver sets it, Student reads it) ──────────────────────────
+// Driver: POST /api/trip-status  { active: true/false }
+app.post('/api/trip-status', verifyAdmin, (req, res) => {
+    const { active } = req.body;
+    const driverId = req.user.id;
+
+    db.query('SELECT bus_id FROM drivers WHERE driver_id = ?', [driverId], (err, results) => {
+        if (err || !results.length) return res.status(500).json({ error: 'DB error' });
+        const busId = String(results[0].bus_id);
+        tripStatusStore.set(busId, { active: !!active, updatedAt: new Date() });
+        console.log(`Trip status for bus ${busId}: ${active ? 'STARTED' : 'ENDED'}`);
+        res.json({ success: true, busId, active });
+    });
+});
+
+// Student: GET /api/trip-status/:busId
+app.get('/api/trip-status/:busId', verifyAdmin, (req, res) => {
+    const busId = String(req.params.busId);
+    const status = tripStatusStore.get(busId);
+    res.json({ active: status?.active || false, updatedAt: status?.updatedAt || null });
+});
+
+// ── AUTO-ATTENDANCE (Student proximity-based) ─────────────────────────────────
+// POST /api/auto-attendance  { type: 'morning'|'evening', dateStr: 'YYYY-MM-DD' }
+app.post('/api/auto-attendance', verifyAdmin, (req, res) => {
+    const userId = req.user.id; // student's email from JWT
+    const { type, dateStr } = req.body;
+
+    if (!type || !dateStr) return res.status(400).json({ error: 'type and dateStr required' });
+
+    // Check if already marked today
+    const checkSql = 'SELECT id FROM attendance WHERE user_id = ? AND attendance_type = ? AND date_str = ?';
+    db.query(checkSql, [userId, type, dateStr], (err, results) => {
+        if (err) return res.status(500).json({ error: 'DB error' });
+        if (results.length > 0) {
+            return res.json({ alreadyMarked: true, message: 'Already marked for today' });
+        }
+
+        // Insert present
+        const insertSql = `INSERT INTO attendance (user_id, attendance_type, date_str, status) VALUES (?, ?, ?, 'present')`;
+        db.query(insertSql, [userId, type, dateStr], (err2) => {
+            if (err2) {
+                console.error('Auto-attendance insert error:', err2);
+                return res.status(500).json({ error: 'DB error' });
+            }
+            console.log(`Auto-attendance: ${userId} marked present for ${type} on ${dateStr}`);
+            res.json({ alreadyMarked: false, message: 'Attendance auto-marked as present!' });
+        });
+    });
+});
+
+// ── TODAY'S ATTENDANCE for all students on a bus (Driver dashboard) ───────────
+// GET /api/bus-attendance/:busId
+app.get('/api/bus-attendance/:busId', verifyAdmin, (req, res) => {
+    const busId = req.params.busId;
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // Join attendance with students to get today's status for each student on this bus
+    const sql = `
+        SELECT 
+            s.email_id  AS email,
+            s.full_name AS fullName,
+            COALESCE(a.status, 'absent') AS status,
+            a.attendance_type
+        FROM students s
+        LEFT JOIN attendance a 
+            ON a.user_id = s.email_id 
+            AND a.date_str = ?
+        WHERE s.bus_id = ?
+    `;
+
+    db.query(sql, [today, busId], (err, results) => {
+        if (err) {
+            console.error('Bus attendance error:', err);
+            return res.status(500).json({ error: 'DB error' });
+        }
+        res.json(results);
+    });
+});
+
 //-----------bus driver gets students data---------------------
 // GET students assigned to a specific bus
 app.get('/api/bus-students/:busId', verifyAdmin, (req, res) => {

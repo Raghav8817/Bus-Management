@@ -6,18 +6,18 @@ function Account() {
 
     const [user, setUser] = useState(null)
     const [imagePreview, setImagePreview] = useState("/profile.png")
+    const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
+
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
     useEffect(() => {
         const fetchUser = async () => {
-            const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
             try {
                 const res = await fetch(`${BASE_URL}/user-data`, { credentials: "include" });
                 if (res.ok) {
                     const data = await res.json();
                     
-                    // Map MySQL keys to frontend expects if necessary, or just use as is
-                    // But MySQL returns everything exactly as columns e.g. email_id
                     const mappedUser = {
                         ...data,
                         busId: data.bus_id || data.busId,
@@ -26,7 +26,8 @@ function Account() {
                         branchSem: data.branch_semester || data.branchSem,
                         contact: data.contact_number || data.contact,
                         email: data.email_id || data.email,
-                        address: data.address
+                        address: data.address,
+                        profileImage: data.profile_image || data.profileImage
                     }
                     
                     setUser(mappedUser);
@@ -40,48 +41,69 @@ function Account() {
             }
         };
         fetchUser();
-    }, [navigate])
+    }, [navigate, BASE_URL])
 
     const handleChange = (e) => {
-
         const { name, value } = e.target
-
         setUser(prev => ({
             ...prev,
             [name]: value
         }))
-
     }
 
     const handleImageChange = (e) => {
-
         const file = e.target.files[0]
         if (!file) return
 
+        if (file.size > 2 * 1024 * 1024) {
+            alert("Image too large (Max 2MB)");
+            return;
+        }
+
         const reader = new FileReader()
-
         reader.onloadend = () => {
-
             setImagePreview(reader.result)
-
             setUser(prev => ({
                 ...prev,
                 profileImage: reader.result
             }))
-
         }
-
         reader.readAsDataURL(file)
-
     }
 
-    const handleSave = () => {
-        // Mock save logic for now, in a real environment it would call a PUT endpoint
-        alert("Profile Updated Successfully ✅");
+    const handleSave = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`${BASE_URL}/api/user-data`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fullName: user.fullName,
+                    busId: user.busId,
+                    course: user.course,
+                    branchSem: user.branchSem,
+                    contact: user.contact,
+                    address: user.address,
+                    profileImage: user.profileImage
+                }),
+                credentials: "include"
+            });
+
+            if (res.ok) {
+                alert("Profile Updated Successfully ✅");
+            } else {
+                const result = await res.json();
+                alert(`Error: ${result.error || "Update failed"}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Connection failed ⚠️");
+        } finally {
+            setLoading(false);
+        }
     }
 
     const handleLogout = async () => {
-        const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
         try {
             await fetch(`${BASE_URL}/logout`, {
                 method: "POST",
@@ -90,7 +112,6 @@ function Account() {
         } catch (err) {
             console.error(err);
         }
-        
         navigate("/");
     }
 
@@ -104,7 +125,7 @@ function Account() {
 
     return (
 
-        <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-black p-6">
+        <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-black p-6 pb-24">
 
             <div className="flex flex-col items-center mb-6">
 
@@ -137,18 +158,20 @@ function Account() {
             <div className="space-y-4">
 
                 {[
-                    { label: "Bus ID", name: "busId" },
                     { label: "Full Name", name: "fullName" },
-                    { label: "Course", name: "course" },
-                    { label: "Branch + Sem", name: "branchSem" },
+                    { label: "Bus ID", name: "busId" },
+                    ...(user.role === 'student' ? [
+                        { label: "Course", name: "course" },
+                        { label: "Branch + Sem", name: "branchSem" }
+                    ] : []),
                     { label: "Contact Number", name: "contact" },
-                    { label: "Email ID", name: "email" },
+                    { label: "Email ID (Verified)", name: "email", disabled: true },
                     { label: "Address", name: "address" }
                 ].map((field, index) => (
 
                     <div key={index}>
 
-                        <label className="text-white font-semibold">
+                        <label className="text-white font-semibold ml-1">
                             {field.label}
                         </label>
 
@@ -157,7 +180,8 @@ function Account() {
                             name={field.name}
                             value={user[field.name] || ""}
                             onChange={handleChange}
-                            className="w-full p-3 rounded-xl mt-1"
+                            disabled={field.disabled}
+                            className={`w-full p-4 rounded-xl mt-1 font-bold ${field.disabled ? 'bg-black/20 text-white/50 cursor-not-allowed' : 'bg-white text-gray-800'}`}
                         />
 
                     </div>
@@ -166,14 +190,15 @@ function Account() {
 
                 <button
                     onClick={handleSave}
-                    className="w-full bg-green-500 text-white py-3 rounded-xl font-bold mt-4 active:scale-95 transition"
+                    disabled={loading}
+                    className={`w-full bg-green-500 text-white py-4 rounded-xl font-bold mt-4 shadow-lg active:scale-95 transition flex justify-center items-center ${loading ? 'opacity-70' : ''}`}
                 >
-                    Save Changes
+                    {loading ? 'Saving Changes...' : 'Save Changes'}
                 </button>
 
                 <button
                     onClick={handleLogout}
-                    className="w-full bg-red-500 text-white py-3 rounded-xl font-bold mt-2 active:scale-95 transition"
+                    className="w-full bg-red-500 text-white py-4 rounded-xl font-bold mt-2 shadow-lg active:scale-95 transition"
                 >
                     Logout
                 </button>
