@@ -11,20 +11,30 @@ const saltRounds = 10;
 // 1. DYNAMIC CORS: Replace with your actual Vercel URL
 app.use(cors({
     origin: (origin, callback) => {
+        // Log incoming origin for debugging in Render dashboard
+        console.log(`[CORS Check] Incoming Origin: ${origin}`);
+
         const allowedOrigins = [
             "http://localhost:5173", 
-            "http://localhost:3000"
+            "http://localhost:3000",
+            "https://bus-management-sooty.vercel.app" // Hardcoded safety
         ];
         
-        // Add FRONTEND_URL and remove trailing slash if exists
+        // Add FRONTEND_URL if exists
         if (process.env.FRONTEND_URL) {
-            allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/$/, ""));
+            allowedOrigins.push(process.env.FRONTEND_URL);
         }
 
-        if (!origin || allowedOrigins.includes(origin)) {
+        // Normalize: lowercase and remove trailing slashes from all
+        const normalizedAllowed = allowedOrigins.map(url => 
+            url ? url.toLowerCase().replace(/\/$/, "") : url
+        );
+        const normalizedOrigin = origin ? origin.toLowerCase().replace(/\/$/, "") : origin;
+
+        if (!origin || normalizedAllowed.includes(normalizedOrigin)) {
             callback(null, true);
         } else {
-            console.log("CORS Rejected for origin:", origin);
+            console.warn(`[CORS Rejected] Origin: ${origin} | Not in: [${normalizedAllowed}]`);
             callback(null, false);
         }
     },
