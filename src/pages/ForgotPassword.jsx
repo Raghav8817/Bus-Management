@@ -31,7 +31,7 @@ function ForgotPassword() {
             const data = await res.json();
             if (res.ok) {
                 setIsOtpSent(true);
-                alert("OTP sent to " + email);
+                // alert("OTP sent to " + email);
             } else {
                 setError(data.error || "Failed to send OTP");
             }
@@ -74,84 +74,114 @@ function ForgotPassword() {
     }
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gray-900 font-sans">
-            <div className="absolute inset-0 bg-yellow-400" style={{ clipPath: "polygon(0 0, 65% 0, 45% 100%, 0% 100%)" }} />
+        <div className="min-h-screen relative overflow-hidden bg-[#262626] font-sans">
+            {/* Top Yellow Header Section with Gradient */}
+            <div className={`transition-all duration-700 ${isOtpSent ? 'h-[25vh]' : 'h-[35vh]'} bg-gradient-to-b from-yellow-300 to-yellow-500 flex items-center justify-center relative shadow-xl border-b-4 border-black/10`}>
+                <img src="/wctm-logo.png" alt="WCTM Logo" className={`transition-all duration-700 ${isOtpSent ? 'w-32 h-32' : 'w-52 h-52'} object-contain drop-shadow-2xl`} />
+            </div>
 
-            <div className="relative z-10 px-6 py-10 flex flex-col min-h-screen">
-                <div className="flex justify-center mb-8">
-                    <img src="/wctm-logo.png" alt="WCTM Logo" className="w-32 h-32 object-contain" />
-                </div>
+            <div className="relative z-10 px-8 py-8 flex flex-col items-center">
+                {!isOtpSent ? (
+                    <div className="w-full max-w-sm flex flex-col items-center space-y-6 animate-in fade-in zoom-in duration-500">
+                        {/* Title Pill */}
+                        <div className="bg-cyan-400 text-black px-10 py-3 rounded-full font-black text-lg uppercase mb-2 shadow-lg text-center w-full">
+                            Recover Password
+                        </div>
 
-                <div className="bg-white border-2 border-black rounded-3xl p-8 shadow-2xl max-w-md w-full mx-auto">
-                    <h2 className="text-xl font-black mb-6 text-center text-gray-800 uppercase tracking-widest border-b-2 border-gray-100 pb-4">
-                        Reset Password
-                    </h2>
+                        {/* Role Switcher Pill */}
+                        <div className="flex bg-[#1a1a1a] rounded-full p-1 w-full border border-white/5">
+                            {["student", "driver", "management"].map((r) => (
+                                <button
+                                    key={r}
+                                    onClick={() => { setRole(r); setError(""); }}
+                                    className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all ${role === r ? "bg-cyan-400 text-black shadow-md" : "text-white opacity-40 hover:opacity-100"}`}
+                                >
+                                    {r}
+                                </button>
+                            ))}
+                        </div>
 
-                    <div className="flex mb-6 bg-gray-100 rounded-full p-1">
-                        {["student", "driver", "management"].map((r) => (
-                            <button
-                                key={r}
-                                onClick={() => { setRole(r); setError(""); setIsOtpSent(false); }}
-                                className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-tighter ${role === r ? "bg-cyan-500 text-white shadow-md" : "text-gray-500"}`}
-                            >
-                                {r}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="space-y-4">
                         <input
-                            type="email"
-                            placeholder="Registered Email"
-                            value={email}
-                            onChange={(e) => { setEmail(e.target.value); setIsOtpSent(false); }}
-                            className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-cyan-500 font-bold text-gray-700"
+                            type="text"
+                            placeholder={
+                                role === "student" ? "Student Bus ID" : 
+                                role === "driver" ? "Bus ID" : "Management ID"
+                            }
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
                         />
 
-                        {isOtpSent && (
-                            <>
-                                <input
-                                    type="text"
-                                    placeholder="Enter 6-Digit OTP"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value)}
-                                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-cyan-500 font-bold text-gray-700"
-                                />
-                                <input
-                                    type="password"
-                                    placeholder="New Password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-cyan-500 font-bold text-gray-700"
-                                />
-                                <input
-                                    type="password"
-                                    placeholder="Confirm New Password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-cyan-500 font-bold text-gray-700"
-                                />
-                            </>
-                        )}
-
-                        {error && <p className="text-red-500 text-[10px] font-black uppercase text-center">{error}</p>}
+                        <input
+                            type="email"
+                            placeholder="Contact Number/Gmail"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
+                        />
 
                         <button
-                            onClick={isOtpSent ? handleResetPassword : handleSendOTP}
+                            onClick={handleSendOTP}
                             disabled={loading}
-                            className="w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                            className="w-full bg-cyan-400 hover:bg-cyan-500 text-black py-4 rounded-[22px] font-black text-2xl uppercase tracking-[1px] shadow-xl transition-all active:scale-95 disabled:opacity-50"
                         >
-                            {loading ? "Processing..." : (isOtpSent ? "Update Password" : "Send OTP")}
-                        </button>
-                        
-                        <button 
-                            onClick={() => navigate("/login")}
-                            className="w-full text-gray-400 text-[10px] font-bold uppercase hover:text-gray-600 transition"
-                        >
-                            Back to Login
+                            {loading ? "..." : "Send OTP"}
                         </button>
                     </div>
-                </div>
+                ) : (
+                    <div className="w-full max-w-sm flex flex-col items-center space-y-6 animate-in slide-in-from-right duration-700">
+                        {/* Title Pill */}
+                        <div className="bg-cyan-400 text-black px-10 py-3 rounded-full font-black text-lg uppercase mb-2 shadow-lg text-center w-full">
+                            Reset Password
+                        </div>
+
+                        <input
+                            type="text"
+                            placeholder="Enter OTP"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
+                        />
+
+                        <input
+                            type="password"
+                            placeholder="Enter a New Password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
+                        />
+
+                        <input
+                            type="password"
+                            placeholder="Confirm Password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
+                        />
+
+                        <button
+                            onClick={handleResetPassword}
+                            disabled={loading}
+                            className="w-full bg-cyan-400 hover:bg-cyan-500 text-black py-4 rounded-[22px] font-black text-2xl uppercase tracking-[1px] shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? "..." : "Update Password"}
+                        </button>
+
+                        <button 
+                            onClick={() => setIsOtpSent(false)}
+                            className="w-full text-white/40 text-xs font-black uppercase hover:text-cyan-400 transition"
+                        >
+                            Change Email / Resend OTP
+                        </button>
+                    </div>
+                )}
+
+                {error && <p className="text-red-500 text-sm font-black uppercase text-center border-2 border-red-500/20 py-3 rounded-2xl bg-white/5 mt-6 w-full max-w-sm">{error}</p>}
+                
+                <button 
+                    onClick={() => navigate("/login")}
+                    className="w-full text-cyan-400 text-base font-black uppercase hover:underline transition mt-8 bg-black/20 py-3 rounded-full max-w-sm shadow-md"
+                >
+                    Back to Login Page
+                </button>
             </div>
         </div>
     )

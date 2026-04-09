@@ -54,36 +54,28 @@ function StudentLogin() {
     };
 
     return (
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-800 via-gray-900 to-yellow-400 font-sans">
-            {/* Background Decoration */}
+        <div className="min-h-screen relative overflow-hidden bg-[#262626] font-sans">
+            {/* Soft Gradient Background Split */}
             <div
-                className="absolute inset-0 bg-yellow-400"
+                className="absolute inset-0"
                 style={{
-                    clipPath: "polygon(0 0, 65% 0, 45% 100%, 0% 100%)"
+                    background: "linear-gradient(115deg, #facc15 0%, #facc15 40%, rgba(0,0,0,0.2) 42%, #262626 45%, #262626 100%)"
                 }}
             />
 
-            <div className="relative z-10 px-6 py-10 flex flex-col min-h-screen">
+            <div className="relative z-10 px-8 py-12 flex flex-col items-center min-h-screen">
                 {/* Logo Section */}
-                <div className="flex justify-center mb-8">
+                <div className="flex justify-center mb-12">
                     <img
                         src="/wctm-logo.png"
                         alt="WCTM Logo"
-                        className="w-40 h-40 object-contain"
+                        className="w-48 h-48 object-contain drop-shadow-2xl"
                     />
                 </div>
 
-                <h1 className="text-center text-white font-black text-2xl mb-8 tracking-widest uppercase">
-                    WCTM Transport
-                </h1>
-
-                {/* Form Card */}
-                <div className="bg-white border-2 border-black rounded-2xl p-8 shadow-[0_10px_30px_rgba(0,0,0,0.3)] max-w-md mx-auto w-full">
-                    <h2 className="text-xl font-black mb-8 text-center text-gray-800 uppercase tracking-widest border-b-2 border-gray-100 pb-4">
-                        {role} Login
-                    </h2>
-
-                    <div className="space-y-4">
+                {/* Input Fields */}
+                <div className="w-full max-w-sm space-y-6">
+                    <div className="relative">
                         <input
                             type="text"
                             placeholder={
@@ -92,56 +84,59 @@ function StudentLogin() {
                             }
                             value={id}
                             onChange={(e) => setId(e.target.value)}
-                            className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
                         />
+                    </div>
 
-                        {role === "driver" && (
+                    {role === "driver" && (
+                        <div className="relative">
                             <input
                                 type="text"
                                 placeholder="Bus Number"
                                 value={busNumber}
                                 onChange={(e) => setBusNumber(e.target.value)}
-                                className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
+                                className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
                             />
-                        )}
+                        </div>
+                    )}
 
-                        
-
+                    <div className="relative">
                         <input
                             type="password"
                             placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
+                            className="w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg"
                         />
-                        <div className="flex justify-end pr-1">
-                            <span
-                                onClick={() => navigate("/forgot-password")}
-                                className="text-[10px] text-cyan-600 font-bold uppercase cursor-pointer hover:underline"
-                            >
-                                Forgot Password?
-                            </span>
-                        </div>
-
-                        {error && (
-                            <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest bg-red-50 py-2 rounded-lg">
-                                {error}
-                            </p>
-                        )}
-
-                        <button
-                            onClick={handleLogin}
-                            disabled={loading}
-                            className={`w-full bg-cyan-500 hover:bg-cyan-600 text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
-                        >
-                            {loading ? "Verifying..." : "Sign In"}
-                        </button>
                     </div>
-                </div>
 
-                {/* Role Switcher */}
-                <div className="mt-auto max-w-md mx-auto w-full">
-                    <div className="flex justify-between border-2 border-white rounded-full p-1 mb-6 backdrop-blur-sm bg-black/10">
+                    {/* Forgot Password Link */}
+                    <div className="flex justify-end pr-2">
+                        <span
+                            onClick={() => navigate("/forgot-password")}
+                            className="text-cyan-400 font-black text-base cursor-pointer hover:underline uppercase tracking-tighter"
+                        >
+                            Forgot Password?
+                        </span>
+                    </div>
+
+                    {error && (
+                        <p className="text-red-500 text-sm font-black uppercase text-center tracking-widest bg-white/10 py-3 rounded-2xl border-2 border-red-500/20">
+                            {error}
+                        </p>
+                    )}
+
+                    {/* Login Button */}
+                    <button
+                        onClick={handleLogin}
+                        disabled={loading}
+                        className={`w-full bg-cyan-400 hover:bg-cyan-500 text-black py-5 rounded-[22px] font-black text-2xl uppercase tracking-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.4)] transition-all active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
+                    >
+                        {loading ? "..." : "Log In"}
+                    </button>
+
+                    {/* Role Switcher Pill */}
+                    <div className="flex bg-[#1a1a1a] rounded-full p-1 overflow-hidden shadow-inner border border-white/5">
                         {["student", "driver", "management"].map((r) => (
                             <button
                                 key={r}
@@ -149,9 +144,9 @@ function StudentLogin() {
                                     setRole(r);
                                     setError("");
                                 }}
-                                className={`flex-1 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${role === r
-                                    ? "bg-cyan-500 text-white shadow-lg"
-                                    : "text-white hover:bg-white/10"
+                                className={`flex-1 py-3 rounded-full text-xs font-black uppercase tracking-tighter transition-all duration-300 ${role === r
+                                    ? "bg-cyan-400 text-black shadow-lg scale-100"
+                                    : "text-white hover:bg-white/5 scale-95 opacity-60"
                                     }`}
                             >
                                 {r}
@@ -159,13 +154,14 @@ function StudentLogin() {
                         ))}
                     </div>
 
-                    <div className="text-center text-xs text-white font-bold pb-4 uppercase tracking-widest">
-                        New User?{" "}
+                    {/* Footer */}
+                    <div className="text-center text-sm font-bold pt-4 text-white">
+                        Don't have an account?{" "}
                         <span
                             onClick={() => navigate("/signup")}
                             className="text-cyan-400 font-black cursor-pointer hover:underline"
                         >
-                            Register Here
+                            Sign Up
                         </span>
                     </div>
                 </div>

@@ -8,9 +8,9 @@ const Input = ({ type = "text", placeholder, value, setValue, error }) => (
             placeholder={placeholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className={`w-full border ${error ? 'border-red-500' : 'border-gray-300'} rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition`}
+            className={`w-full bg-yellow-400 text-black border-none rounded-[25px] px-8 py-4 outline-none font-black text-xl placeholder:text-black/80 shadow-lg ${error ? 'ring-4 ring-red-500/50' : ''} transition-all`}
         />
-        {error && <p className="text-[10px] text-red-500 font-bold mt-1 ml-2 uppercase">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 font-black mt-2 ml-4 uppercase tracking-tighter">{error}</p>}
     </div>
 )
 
@@ -53,10 +53,10 @@ function Signup() {
         if (!password || password.length < 6) errors.password = "Min 6 chars";
         if (role === 'student') {
             if (!studentEmail) errors.studentEmail = "Required";
-            if (!studentBusId) errors.studentBusId = "Required";
+            // if (!studentBusId) errors.studentBusId = "Required";
         }
         if (role === 'driver') {
-            if (!driverEmail) errors.driverEmail = "Email Required for verification";
+            if (!driverEmail) errors.driverEmail = "Email Required";
         }
         if (role === 'management') {
             if (!managementEmail) errors.managementEmail = "Required";
@@ -75,7 +75,7 @@ function Signup() {
     const handleSendOTP = async () => {
         const email = getCurrentEmail();
         if (!email) {
-            setError("Please enter your email first");
+            setError("Enter email first");
             return;
         }
 
@@ -148,63 +148,67 @@ function Signup() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-yellow-500 flex items-center justify-center px-4 py-10">
-            <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8">
-                <h1 className="text-3xl font-bold text-center mb-6 text-black">Create Account</h1>
+        <div className="min-h-screen relative overflow-hidden bg-[#262626] font-sans pb-10">
+            {/* Top Yellow Header Section with Gradient */}
+            <div className={`transition-all duration-700 ${isOtpSent ? 'h-[25vh]' : 'h-[35vh]'} bg-gradient-to-b from-yellow-300 to-yellow-500 flex items-center justify-center relative shadow-xl border-b-4 border-black/10`}>
+                <img src="/wctm-logo.png" alt="WCTM Logo" className="w-52 h-52 object-contain drop-shadow-2xl translate-y-6" />
+            </div>
 
-                <div className="flex mb-8 bg-gray-100 rounded-full p-1">
+            <div className="relative z-10 px-8 py-8 flex flex-col items-center">
+                {/* Title Pill */}
+                <div className="bg-[#0e7490] text-white px-10 py-3 rounded-full font-black text-lg uppercase mb-8 shadow-lg text-center w-full max-w-sm">
+                    Sign Up New User
+                </div>
+
+                {/* Role Switcher Pill */}
+                <div className="flex bg-[#1a1a1a] rounded-full p-1 w-full max-w-sm mb-8 border border-white/5">
                     {["student", "driver", "management"].map((r) => (
                         <button
                             key={r}
                             onClick={() => { setRole(r); setFieldErrors({}); }}
-                            className={`flex-1 py-2 rounded-full text-sm font-semibold transition ${role === r ? "bg-yellow-400 text-black shadow-md" : "text-gray-600"}`}
+                            className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase tracking-tighter transition-all ${role === r ? "bg-cyan-400 text-black shadow-md" : "text-white opacity-40 hover:opacity-100"}`}
                         >
-                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                            {r}
                         </button>
                     ))}
                 </div>
 
-                <div className="space-y-4">
+                <div className="w-full max-w-sm space-y-6">
                     <Input placeholder="Full Name" value={fullName} setValue={setFullName} error={fieldErrors.fullName} />
 
                     {role === "student" && (
                         <>
-                            <Input placeholder="Bus Number (Assigned)" value={studentBusId} setValue={setStudentBusId} error={fieldErrors.studentBusId} />
                             <Input placeholder="Course" value={course} setValue={setCourse} />
-                            <Input placeholder="Branch + Semester" value={branchSem} setValue={setBranchSem} />
+                            {/* <Input placeholder="Branch + Semester" value={branchSem} setValue={setBranchSem} /> */}
                             <Input placeholder="Contact Number" value={studentContact} setValue={setStudentContact} />
-                            <Input placeholder="Address" value={studentAddress} setValue={setStudentAddress} />
+                            {/* <Input placeholder="Address" value={studentAddress} setValue={setStudentAddress} /> */}
                             <div className="flex gap-2">
-                                <Input placeholder="Email ID" value={studentEmail} setValue={setStudentEmail} error={fieldErrors.studentEmail} />
+                                <Input placeholder="EMail I'd" value={studentEmail} setValue={setStudentEmail} error={fieldErrors.studentEmail} />
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
                                 </button>
                             </div>
-                            
                         </>
                     )}
 
                     {role === "driver" && (
                         <>
-                            <Input placeholder="Driver ID" value={driverId} setValue={setDriverId} />
-                            <Input placeholder="Bus ID" value={busId} setValue={setBusId} />
-                            <Input placeholder="Bus Number" value={busNumber} setValue={setBusNumber} />
+                            <Input placeholder="Driver ID / Bus ID" value={driverId} setValue={setDriverId} />
+                            <Input placeholder="Contact Number" value={driverContact} setValue={setDriverContact} />
                             <div className="flex gap-2">
-                                <Input placeholder="Email ID" value={driverEmail} setValue={setDriverEmail} error={fieldErrors.driverEmail} />
+                                <Input placeholder="EMail I'd" value={driverEmail} setValue={setDriverEmail} error={fieldErrors.driverEmail} />
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
                                 </button>
                             </div>
-                            <Input placeholder="Contact Number" value={driverContact} setValue={setDriverContact} />
-                            <Input placeholder="Address" value={driverAddress} setValue={setDriverAddress} />
                         </>
                     )}
 
@@ -212,16 +216,15 @@ function Signup() {
                         <>
                             <Input placeholder="Management ID" value={managementId} setValue={setManagementId} />
                             <div className="flex gap-2">
-                                <Input placeholder="Email ID" value={managementEmail} setValue={setManagementEmail} error={fieldErrors.managementEmail} />
+                                <Input placeholder="EMail I'd" value={managementEmail} setValue={setManagementEmail} error={fieldErrors.managementEmail} />
                                 <button
                                     onClick={handleSendOTP}
                                     disabled={otpLoading}
-                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                    className="bg-black text-white px-4 rounded-[20px] text-xs font-black whitespace-nowrap disabled:opacity-50 h-[60px] shadow-lg border-2 border-yellow-400/20"
                                 >
-                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                    {otpLoading ? "..." : (isOtpSent ? "RE" : "SEND")}
                                 </button>
                             </div>
-                            <Input placeholder="Address" value={managementAddress} setValue={setManagementAddress} />
                         </>
                     )}
 
@@ -229,18 +232,21 @@ function Signup() {
 
                     <Input type="password" placeholder="Password" value={password} setValue={setPassword} error={fieldErrors.password} />
 
-                    {error && <p className="text-red-500 text-sm text-center font-bold">{error}</p>}
+                    {error && <p className="text-red-500 text-sm font-black uppercase text-center border-2 border-red-500/20 py-3 rounded-2xl bg-white/5">{error}</p>}
 
                     <button
                         onClick={handleSignup}
-                        className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-3 rounded-xl font-bold transition shadow-lg active:scale-95"
+                        className="w-full bg-cyan-400 hover:bg-cyan-500 text-black py-4 rounded-[22px] font-black text-2xl uppercase tracking-[1px] shadow-xl transition-all active:scale-95"
                     >
                         Sign Up
                     </button>
 
-                    <p className="text-center text-gray-500 text-xs mt-4">
-                        Already have an account? <span onClick={() => navigate("/login")} className="text-yellow-600 font-bold cursor-pointer hover:underline">Log In</span>
-                    </p>
+                    <button 
+                        onClick={() => navigate("/login")}
+                        className="w-full bg-cyan-400 text-black py-4 rounded-full font-black text-lg uppercase shadow-lg active:scale-95 mt-4"
+                    >
+                        Back to Login Page
+                    </button>
                 </div>
             </div>
         </div>
