@@ -105,6 +105,8 @@ function StudentLogin() {
                             />
                         )}
 
+                        
+
                         <input
                             type="password"
                             placeholder="Password"
@@ -112,6 +114,14 @@ function StudentLogin() {
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full border-2 border-gray-200 rounded-xl px-5 py-4 outline-none focus:border-cyan-500 transition-all font-bold text-gray-700"
                         />
+                        <div className="flex justify-end pr-1">
+                            <span
+                                onClick={() => navigate("/forgot-password")}
+                                className="text-[10px] text-cyan-600 font-bold uppercase cursor-pointer hover:underline"
+                            >
+                                Forgot Password?
+                            </span>
+                        </div>
 
                         {error && (
                             <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest bg-red-50 py-2 rounded-lg">

@@ -6,7 +6,17 @@ const db = require('./config/db');
 const jwt = require("jsonwebtoken");
 const cookieparser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const saltRounds = 10;
+
+// --- EMAIL CONFIGURATION ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 // 1. DYNAMIC CORS: Replace with your actual Vercel URL
 app.use(cors({
@@ -210,9 +220,19 @@ app.post('/signup', async (req, res) => {
         // 1. Check for basic duplication (User ID / Email)
         let checkSql = "";
         let checkVal = "";
+        const { otp } = req.body;
+
         if (role === 'student') { checkSql = "SELECT * FROM students WHERE email_id = ?"; checkVal = email; }
-        else if (role === 'driver') { checkSql = "SELECT * FROM drivers WHERE driver_id = ?"; checkVal = driverId; }
-        else if (role === 'management') { checkSql = "SELECT * FROM management WHERE management_id = ?"; checkVal = managementId; }
+        else if (role === 'driver') { checkSql = "SELECT * FROM drivers WHERE email_id = ?"; checkVal = email; }
+        else if (role === 'management') { checkSql = "SELECT * FROM management WHERE email_id = ?"; checkVal = email; }
+
+        // 0. VERIFY OTP FIRST
+        const otpRecord = await new Promise((resolve) => {
+            db.query("SELECT * FROM otps WHERE email = ? AND otp = ? AND expires_at > NOW()", [email, otp], (e, r) => resolve(r));
+        });
+        if (!otpRecord || otpRecord.length === 0) {
+            return res.status(400).json({ error: "Invalid or expired OTP" });
+        }
 
         const existingUser = await new Promise((resolve) => db.query(checkSql, [checkVal], (e, r) => resolve(r)));
         if (existingUser && existingUser.length > 0) {
@@ -241,8 +261,8 @@ app.post('/signup', async (req, res) => {
             values = [fullName, studentBusId, course, branchSem, contact, email, address, hashedPassword];
             userIdForToken = email;
         } else if (role === "driver") {
-            sql = `INSERT INTO drivers (full_name, driver_id, bus_id, bus_number, contact_number, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, 'driver')`;
-            values = [fullName, driverId, busId, busNumber, contact, address, hashedPassword];
+            sql = `INSERT INTO drivers (full_name, driver_id, bus_id, bus_number, contact_number, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'driver')`;
+            values = [fullName, driverId, busId, busNumber, contact, email, address, hashedPassword];
             userIdForToken = driverId;
         } else if (role === "management") {
             sql = `INSERT INTO management (management_id, full_name, email_id, address, password, role) VALUES (?, ?, ?, ?, ?, 'management')`;
@@ -257,6 +277,8 @@ app.post('/signup', async (req, res) => {
             }
             const token = jwt.sign({ id: userIdForToken, role: role }, process.env.JWT_SECRET, { expiresIn: "1d" });
             res.cookie('authToken', token, cookieOptions);
+            // Cleanup OTP
+            db.query("DELETE FROM otps WHERE email = ?", [email]);
             res.status(201).json({ message: "Success", role: role });
         });
 
@@ -301,6 +323,131 @@ app.post('/login', (req, res) => {
             res.status(401).json({ error: "Invalid Credentials" });
         }
     });
+});
+
+// --- OTP SYSTEM (DB-BACKED) ---
+
+// 1. SEND OTP (For Signup and Forgot Password)
+app.post('/api/send-otp', async (req, res) => {
+    const { email, role, type } = req.body; // type: 'signup' or 'forgot'
+
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    try {
+        // Validation based on type
+        if (type === 'signup') {
+            let checkSql = "";
+            if (role === 'student') checkSql = "SELECT id FROM students WHERE email_id = ?";
+            else if (role === 'driver') checkSql = "SELECT id FROM drivers WHERE email_id = ?";
+            else checkSql = "SELECT id FROM management WHERE email_id = ?";
+
+            const existing = await new Promise((resolve) => db.query(checkSql, [email], (e, r) => resolve(r)));
+            if (existing && existing.length > 0) {
+                return res.status(400).json({ error: "Email already registered" });
+            }
+        } else if (type === 'forgot') {
+            let userSql = "";
+            if (role === 'student') userSql = "SELECT id FROM students WHERE email_id = ?";
+            else if (role === 'driver') userSql = "SELECT id FROM drivers WHERE email_id = ?";
+            else userSql = "SELECT id FROM management WHERE email_id = ?";
+
+            const user = await new Promise((resolve) => db.query(userSql, [email], (e, r) => resolve(r)));
+            if (!user || user.length === 0) {
+                return res.status(404).json({ error: "No user found with this email" });
+            }
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+        // Store in DB
+        await new Promise((resolve) => db.query("DELETE FROM otps WHERE email = ?", [email], (e, r) => resolve(r)));
+        await new Promise((resolve, reject) => {
+            db.query("INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)", [email, otp, expiresAt], (err, r) => {
+                if (err) reject(err); else resolve(r);
+            });
+        });
+
+        // Send Email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: type === 'signup' ? 'Verify Your WCTM Registration' : 'Reset Your WCTM Password',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+                    <div style="background: #facc15; padding: 20px; text-align: center;">
+                        <img src="https://wctmgurgaon.com/images/logo.png" alt="WCTM Logo" style="width: 100px;">
+                    </div>
+                    <div style="padding: 30px; text-align: center;">
+                        <h2 style="color: #333;">Verification Code</h2>
+                        <p style="color: #666;">Your One-Time Password (OTP) for ${type === 'signup' ? 'registration' : 'password reset'} is:</p>
+                        <div style="background: #f3f4f6; padding: 15px; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111; margin: 20px 0; border-radius: 8px;">
+                            ${otp}
+                        </div>
+                        <p style="color: #999; font-size: 12px;">This code will expire in 5 minutes.</p>
+                    </div>
+                    <div style="background: #f9fafb; padding: 15px; text-align: center; color: #aaa; font-size: 11px;">
+                        WCTM Transport Management System &copy; 2026
+                    </div>
+                </div>
+            `
+        };
+
+        transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                console.error("Email Error:", err);
+                return res.status(500).json({ error: "Failed to send email" });
+            }
+            res.json({ message: "OTP sent successfully" });
+        });
+
+    } catch (err) {
+        console.error("OTP Route Error:", err);
+        res.status(500).json({ error: "Server error" });
+    }
+});
+
+// 2. RESET PASSWORD
+app.post('/api/reset-password', async (req, res) => {
+    const { email, role, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+        // Verify OTP
+        const otpRecord = await new Promise((resolve) => {
+            db.query("SELECT * FROM otps WHERE email = ? AND otp = ? AND expires_at > NOW()", [email, otp], (e, r) => resolve(r));
+        });
+
+        if (!otpRecord || otpRecord.length === 0) {
+            return res.status(400).json({ error: "Invalid or expired OTP" });
+        }
+
+        // Hash New Password
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update User
+        let updateSql = "";
+        if (role === 'student') updateSql = "UPDATE students SET password = ? WHERE email_id = ?";
+        else if (role === 'driver') updateSql = "UPDATE drivers SET password = ? WHERE email_id = ?";
+        else updateSql = "UPDATE management SET password = ? WHERE email_id = ?";
+
+        await new Promise((resolve, reject) => {
+            db.query(updateSql, [hashedPassword, email], (err, r) => {
+                if (err) reject(err); else resolve(r);
+            });
+        });
+
+        // Cleanup OTP
+        db.query("DELETE FROM otps WHERE email = ?", [email]);
+
+        res.json({ message: "Password updated successfully" });
+
+    } catch (err) {
+        console.error("Reset Error:", err);
+        res.status(500).json({ error: "Failed to reset password" });
+    }
 });
 
 // --- GET USERS FOR MANAGEMENT ---

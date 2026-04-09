@@ -33,12 +33,17 @@ function Signup() {
     const [busId, setBusId] = useState("")
     const [driverId, setDriverId] = useState("")
     const [busNumber, setBusNumber] = useState("")
+    const [driverEmail, setDriverEmail] = useState("")
     const [driverContact, setDriverContact] = useState("")
     const [driverAddress, setDriverAddress] = useState("")
 
     const [managementId, setManagementId] = useState("")
     const [managementEmail, setManagementEmail] = useState("")
     const [managementAddress, setManagementAddress] = useState("")
+
+    const [otp, setOtp] = useState("")
+    const [isOtpSent, setIsOtpSent] = useState(false)
+    const [otpLoading, setOtpLoading] = useState(false)
 
     const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -50,9 +55,52 @@ function Signup() {
             if (!studentEmail) errors.studentEmail = "Required";
             if (!studentBusId) errors.studentBusId = "Required";
         }
+        if (role === 'driver') {
+            if (!driverEmail) errors.driverEmail = "Email Required for verification";
+        }
+        if (role === 'management') {
+            if (!managementEmail) errors.managementEmail = "Required";
+        }
+        if (!otp) errors.otp = "OTP Required";
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
     }
+
+    const getCurrentEmail = () => {
+        if (role === 'student') return studentEmail;
+        if (role === 'driver') return driverEmail;
+        return managementEmail;
+    };
+
+    const handleSendOTP = async () => {
+        const email = getCurrentEmail();
+        if (!email) {
+            setError("Please enter your email first");
+            return;
+        }
+
+        setOtpLoading(true);
+        setError("");
+
+        try {
+            const res = await fetch(`${BASE_URL}/api/send-otp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, role, type: 'signup' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setIsOtpSent(true);
+                alert("OTP Sent to " + email);
+            } else {
+                setError(data.error || "Failed to send OTP");
+            }
+        } catch (err) {
+            setError("Server error while sending OTP");
+        } finally {
+            setOtpLoading(false);
+        }
+    };
 
     const handleSignup = async () => {
         setError("")
@@ -62,7 +110,7 @@ function Signup() {
             role,
             fullName,
             password,
-            email: role === "student" ? studentEmail : managementEmail,
+            email: getCurrentEmail(),
             contact: role === "student" ? studentContact : driverContact,
             address: role === "student" ? studentAddress : (role === "driver" ? driverAddress : managementAddress),
             studentBusId,
@@ -71,7 +119,8 @@ function Signup() {
             driverId,
             busId,
             busNumber,
-            managementId
+            managementId,
+            otp
         };
 
         try {
@@ -124,8 +173,18 @@ function Signup() {
                             <Input placeholder="Course" value={course} setValue={setCourse} />
                             <Input placeholder="Branch + Semester" value={branchSem} setValue={setBranchSem} />
                             <Input placeholder="Contact Number" value={studentContact} setValue={setStudentContact} />
-                            <Input placeholder="Email ID" value={studentEmail} setValue={setStudentEmail} error={fieldErrors.studentEmail} />
                             <Input placeholder="Address" value={studentAddress} setValue={setStudentAddress} />
+                            <div className="flex gap-2">
+                                <Input placeholder="Email ID" value={studentEmail} setValue={setStudentEmail} error={fieldErrors.studentEmail} />
+                                <button
+                                    onClick={handleSendOTP}
+                                    disabled={otpLoading}
+                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                >
+                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                </button>
+                            </div>
+                            
                         </>
                     )}
 
@@ -134,6 +193,16 @@ function Signup() {
                             <Input placeholder="Driver ID" value={driverId} setValue={setDriverId} />
                             <Input placeholder="Bus ID" value={busId} setValue={setBusId} />
                             <Input placeholder="Bus Number" value={busNumber} setValue={setBusNumber} />
+                            <div className="flex gap-2">
+                                <Input placeholder="Email ID" value={driverEmail} setValue={setDriverEmail} error={fieldErrors.driverEmail} />
+                                <button
+                                    onClick={handleSendOTP}
+                                    disabled={otpLoading}
+                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                >
+                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                </button>
+                            </div>
                             <Input placeholder="Contact Number" value={driverContact} setValue={setDriverContact} />
                             <Input placeholder="Address" value={driverAddress} setValue={setDriverAddress} />
                         </>
@@ -142,10 +211,21 @@ function Signup() {
                     {role === "management" && (
                         <>
                             <Input placeholder="Management ID" value={managementId} setValue={setManagementId} />
-                            <Input placeholder="Email ID" value={managementEmail} setValue={setManagementEmail} />
+                            <div className="flex gap-2">
+                                <Input placeholder="Email ID" value={managementEmail} setValue={setManagementEmail} error={fieldErrors.managementEmail} />
+                                <button
+                                    onClick={handleSendOTP}
+                                    disabled={otpLoading}
+                                    className="bg-black text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap disabled:opacity-50 h-[50px] mt-0"
+                                >
+                                    {otpLoading ? "..." : (isOtpSent ? "Resend" : "Send OTP")}
+                                </button>
+                            </div>
                             <Input placeholder="Address" value={managementAddress} setValue={setManagementAddress} />
                         </>
                     )}
+
+                    <Input placeholder="Enter OTP" value={otp} setValue={setOtp} error={fieldErrors.otp} />
 
                     <Input type="password" placeholder="Password" value={password} setValue={setPassword} error={fieldErrors.password} />
 

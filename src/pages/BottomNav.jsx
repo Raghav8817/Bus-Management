@@ -9,7 +9,7 @@ function BottomNav() {
 
             <HomeIcon
                 className="cursor-pointer"
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/")}
             />
 
             <Info

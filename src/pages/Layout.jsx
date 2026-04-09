@@ -5,7 +5,7 @@ import BottomNav from "./BottomNav"
 function Layout() {
     const location = useLocation()
 
-    const hideBackRoutes = ["/home", "/account"]
+    const hideBackRoutes = ["/", "/account"]
     const hideNavRoutes = [
         "/",
         "/signup",
