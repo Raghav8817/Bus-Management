@@ -28,6 +28,20 @@ function Home() {
     const [showNotifications, setShowNotifications] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const attendanceLoggedRef = useRef(false)
+    const [alarmTime, setAlarmTime] = useState(5)
+    const [alarmActive, setAlarmActive] = useState(false)
+    const [alarmTriggered, setAlarmTriggered] = useState(false)
+    const alarmTriggeredRef = useRef(false)
+    const audioRef = useRef(null)
+    const stopAlarm = () => {
+        setAlarmTriggered(false)
+        setAlarmActive(false)
+        alarmTriggeredRef.current = false
+        if (audioRef.current) {
+            audioRef.current.pause()
+            audioRef.current.currentTime = 0
+        }
+    }
 
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -98,10 +112,22 @@ function Home() {
                     const sLon = pos.coords.longitude
                     const d = haversineKm(sLat, sLon, bLat, bLon)
 
+                    const eta = Math.round(d * 2.4)
+
                     setTrackingData({
                         distance: d.toFixed(1),
-                        arrivalTime: Math.round(d * 2.4)
+                        arrivalTime: eta
                     })
+
+                    if (alarmActive && !alarmTriggeredRef.current && eta <= alarmTime) {
+                        alarmTriggeredRef.current = true
+                        setAlarmTriggered(true)
+
+                        const audio = new Audio("/alert.mp3")
+                        audio.loop = true
+                        audioRef.current = audio
+                        audio.play().catch(() => { })
+                    }
 
                     if (d < 0.3 && !attendanceLoggedRef.current) {
                         attendanceLoggedRef.current = true
@@ -199,6 +225,21 @@ function Home() {
                 </div>
             )}
 
+            {alarmTriggered && (
+                <div className="fixed top-20 left-4 right-4 z-50 bg-red-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex justify-between items-center">
+                    <div>
+                        <p className="font-bold">Bus arriving soon</p>
+                        <p className="text-xs">ETA reached your set time</p>
+                    </div>
+                    <button
+                        onClick={stopAlarm}
+                        className="bg-black px-4 py-2 rounded-lg"
+                    >
+                        Stop
+                    </button>
+                </div>
+            )}
+
             <div className="px-6 pt-2 pb-8 relative">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
@@ -236,23 +277,48 @@ function Home() {
                 <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-white/30 relative">
 
                     {/* Live / Not Started indicator */}
-                    <div className="flex items-center gap-2 mb-2">
-                        {tripActive ? (
-                            <>
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-                                </span>
-                                <span className="text-sm font-bold text-green-900">LIVE TRACKING</span>
-                            </>
-                        ) : (
-                            <>
-                                <span className="relative flex h-3 w-3">
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400" />
-                                </span>
-                                <span className="text-sm font-bold text-gray-700">TRACKING</span>
-                            </>
-                        )}
+                    <div className="flex items-center justify-between mb-2">
+
+                        <div className="flex items-center gap-2">
+                            {tripActive ? (
+                                <>
+                                    <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                                    </span>
+                                    <span className="text-sm font-bold text-green-900">LIVE TRACKING</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="relative flex h-3 w-3">
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400" />
+                                    </span>
+                                    <span className="text-sm font-bold text-gray-700">TRACKING</span>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Alarm UI */}
+                        <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl border border-yellow-400/40 backdrop-blur-md shadow-lg">
+
+                            <span className="text-yellow-300 text-xs">⏰</span>
+
+                            <input
+                                type="number"
+                                min="1"
+                                value={alarmTime}
+                                onChange={(e) => {
+                                    setAlarmTime(Number(e.target.value))
+                                    setAlarmActive(true)
+                                    setAlarmTriggered(false)
+                                    alarmTriggeredRef.current = false
+                                }}
+                                className="w-10 bg-transparent text-center text-yellow-200 font-bold text-sm outline-none"
+                            />
+
+                            <span className="text-yellow-300 text-[10px]">min</span>
+                        </div>
+
                     </div>
 
                     {/* ETA or Trip Status Message */}

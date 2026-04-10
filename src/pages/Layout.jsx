@@ -5,7 +5,7 @@ import BottomNav from "./BottomNav"
 function Layout() {
     const location = useLocation()
 
-    const hideBackRoutes = ["/", "/account"]
+    const hideBackRoutes = ["/home", "/account"]
     const hideNavRoutes = [
         "/",
         "/signup",
@@ -17,7 +17,7 @@ function Layout() {
     const showNav = !hideNavRoutes.includes(location.pathname)
 
     return (
-        <div className="relative min-h-screen">
+        <div className="relative min-h-screen bg-black">
 
             {showBack && (
                 <div className="fixed top-6 left-6 z-50">
@@ -25,7 +25,10 @@ function Layout() {
                 </div>
             )}
 
-            <Outlet />
+            
+            <div className="pb-24">
+                <Outlet />
+            </div>
 
             {showNav && <BottomNav />}
         </div>
