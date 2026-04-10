@@ -5,7 +5,6 @@ import BottomNav from "./BottomNav"
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
 
-// Haversine distance in km
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371
     const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -13,8 +12,8 @@ function haversineKm(lat1, lon1, lat2, lon2) {
     const a =
         Math.sin(dLat / 2) ** 2 +
         Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLon / 2) ** 2
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
@@ -25,16 +24,11 @@ function Home() {
     const [tripActive, setTripActive] = useState(false)
     const [trackingData, setTrackingData] = useState({ arrivalTime: null, distance: null })
     const [autoAttendanceMsg, setAutoAttendanceMsg] = useState("")
-    
-    // Notifications State
     const [notifications, setNotifications] = useState([])
     const [showNotifications, setShowNotifications] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
-
-    // Prevent double-logging attendance in one session
     const attendanceLoggedRef = useRef(false)
 
-    // ── Fetch student profile ──────────────────────────────────────────
     useEffect(() => {
         const fetchStudentData = async () => {
             try {
@@ -50,7 +44,6 @@ function Home() {
         fetchStudentData()
     }, [])
 
-    // ── Fetch Notifications ───────────────────────────────────────────────
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
@@ -58,8 +51,6 @@ function Home() {
                 if (res.ok) {
                     const data = await res.json()
                     setNotifications(data)
-                    
-                    // Check for unread
                     const lastSeenId = localStorage.getItem("lastSeenNotificationId")
                     if (data.length > 0 && (!lastSeenId || data[0].id > parseInt(lastSeenId))) {
                         setHasUnread(true)
@@ -80,7 +71,6 @@ function Home() {
         }
     }
 
-    // ── Poll trip status + location every 5 seconds ─────────────────────────
     useEffect(() => {
         if (!user?.bus_id || user.bus_id === "N/A") return
 
@@ -173,8 +163,7 @@ function Home() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-black relative pb-20">
-            
-            {/* Notification Slide Panel */}
+
             <div className={`fixed inset-0 z-[100] transition-all duration-300 ${showNotifications ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNotifications(false)} />
                 <div className={`absolute right-0 top-0 bottom-0 w-[85%] bg-[#1a1a1a] shadow-2xl transition-transform duration-300 ${showNotifications ? 'translate-x-0' : 'translate-x-full'} overflow-hidden flex flex-col`}>
@@ -200,7 +189,6 @@ function Home() {
                 </div>
             </div>
 
-            {/* Auto-attendance toast */}
             {autoAttendanceMsg && (
                 <div className="fixed top-4 left-4 right-4 z-50 bg-green-600 text-white px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
                     <span className="text-2xl">🎉</span>
@@ -212,7 +200,6 @@ function Home() {
             )}
 
             <div className="px-6 pt-2 pb-8 relative">
-                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
                         <img
@@ -223,7 +210,7 @@ function Home() {
                         />
                         <div>
                             <p className="font-semibold text-sm text-black">
-                                Bus ID: {user.bus_id || "Not Assigned"}
+                                Name: {user.full_name || "User"}
                             </p>
                             <p className="text-sm text-black/80 font-bold">
                                 {user.branch_semester || user.course}
