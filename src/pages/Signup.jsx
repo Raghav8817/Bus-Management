@@ -197,7 +197,9 @@ function Signup() {
 
                     {role === "driver" && (
                         <>
-                            <Input placeholder="Driver ID / Bus ID" value={driverId} setValue={setDriverId} />
+                            <Input placeholder="Driver ID" value={driverId} setValue={setDriverId} />
+                            <Input placeholder="Bus ID" value={busId} setValue={setBusId} />
+                            <Input placeholder="Bus Number" value={busNumber} setValue={setBusNumber} />
                             <Input placeholder="Contact Number" value={driverContact} setValue={setDriverContact} />
                             <div className="flex gap-2">
                                 <Input placeholder="EMail I'd" value={driverEmail} setValue={setDriverEmail} error={fieldErrors.driverEmail} />
