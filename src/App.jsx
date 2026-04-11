@@ -50,6 +50,7 @@ import Complaint from "./pages/Complaint";
 import Suggestions from "./pages/Suggestions";
 import Account from "./pages/Account";
 import LiveTracking from "./pages/LiveTracking";
+import EditSOS from "./pages/EditSOS";
 
 function App() {
   return (
@@ -99,6 +100,7 @@ function App() {
           <Route path="/morning-attendance" element={<MorningAttendance />} />
           <Route path="/evening-attendance" element={<EveningAttendance />} />
           <Route path="/sos" element={<SOS />} />
+          <Route path="/edit-sos" element={<EditSOS />} />
           <Route path="/fee-status" element={<BusFeeStatus />} />
           <Route path="/complaint" element={<Complaint />} />
           <Route path="/suggestions" element={<Suggestions />} />

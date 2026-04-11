@@ -6,13 +6,15 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
 function DriverDashboard() {
     const navigate = useNavigate()
     const [driver, setDriver] = useState(null)
-    // studentsWithAttendance: [{ email, fullName, stop, status }]
     const [studentsWithAttendance, setStudentsWithAttendance] = useState([])
     const [tripStarted, setTripStarted] = useState(false)
-    const [lastCoords, setLastCoords] = useState(null)  // shows live coords on screen
+    const [lastCoords, setLastCoords] = useState(null)
+
+    const [distance, setDistance] = useState(0)
+    const [startTime, setStartTime] = useState(null)
+
     const watchIdRef = useRef(null)
 
-    // --- 1. FETCH ATTENDANCE (refreshes every 10s) ---
     const fetchAttendance = useCallback(async (busNumber) => {
         try {
             const res = await fetch(
@@ -28,7 +30,6 @@ function DriverDashboard() {
         }
     }, [])
 
-    // --- 2. FETCH DRIVER PROFILE, then attendance ---
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
@@ -42,8 +43,15 @@ function DriverDashboard() {
                     busNumber: userData.bus_id || userData.bus_number
                 }
                 setDriver(mappedDriver)
-                // fetch attendance straight away
                 fetchAttendance(userData.bus_id || userData.bus_number)
+
+                const savedTrip = JSON.parse(localStorage.getItem("tripTracking"))
+                if (savedTrip) {
+                    setDistance(savedTrip.distance || 0)
+                    setStartTime(savedTrip.startTime || null)
+                    setTripStarted(savedTrip.started || false)
+                }
+
             } catch (err) {
                 console.error("Dashboard init error:", err)
                 navigate("/Login")
@@ -52,17 +60,42 @@ function DriverDashboard() {
         fetchDashboardData()
     }, [navigate, fetchAttendance])
 
-    // Auto-refresh attendance every 10 seconds once driver is loaded
     useEffect(() => {
         if (!driver?.busNumber) return
         const interval = setInterval(() => fetchAttendance(driver.busNumber), 10000)
         return () => clearInterval(interval)
     }, [driver, fetchAttendance])
 
-    // --- 3. GPS TRACKING — every 1 second when trip is active ---
+    useEffect(() => {
+        if (!tripStarted || !startTime) return
+
+        const interval = setInterval(() => {
+
+            const now = Date.now()
+            const hours = (now - startTime) / (1000 * 60 * 60)
+
+            const speed = 30
+            const newDistance = (hours * speed).toFixed(2)
+
+            setDistance(newDistance)
+
+            localStorage.setItem(
+                "tripTracking",
+                JSON.stringify({
+                    started: true,
+                    startTime,
+                    distance: newDistance
+                })
+            )
+
+        }, 5000)
+
+        return () => clearInterval(interval)
+
+    }, [tripStarted, startTime])
+
     useEffect(() => {
         if (!tripStarted) {
-            // Clear watch if trip ended
             if (watchIdRef.current !== null) {
                 navigator.geolocation.clearWatch(watchIdRef.current)
                 watchIdRef.current = null
@@ -91,8 +124,8 @@ function DriverDashboard() {
             (error) => console.error("GPS Error:", error),
             {
                 enableHighAccuracy: true,
-                maximumAge: 0,      // Always get a fresh GPS fix
-                timeout: 1000       // 1-second timeout per reading
+                maximumAge: 0,
+                timeout: 1000
             }
         )
 
@@ -104,7 +137,6 @@ function DriverDashboard() {
         }
     }, [tripStarted])
 
-    // --- LOGOUT ---
     const logout = async () => {
         try {
             const res = await fetch(`${BASE_URL}/logout`, { method: "POST", credentials: "include" })
@@ -112,12 +144,10 @@ function DriverDashboard() {
         } catch { window.location.href = "/Login" }
     }
 
-    // --- TOGGLE TRIP (Start / End) ---
     const toggleTrip = async () => {
         const newStatus = !tripStarted
         setTripStarted(newStatus)
 
-        // 1. Notify backend of trip status → students see it on their dashboard
         try {
             await fetch(`${BASE_URL}/api/trip-status`, {
                 method: "POST",
@@ -127,7 +157,6 @@ function DriverDashboard() {
             })
         } catch (err) { console.error("Trip status update failed:", err) }
 
-        // 2. Log trip start/end to reports
         try {
             await fetch(`${BASE_URL}/api/reports`, {
                 method: "POST",
@@ -140,18 +169,38 @@ function DriverDashboard() {
             })
         } catch (err) { console.error("Report log failed:", err) }
 
-        if (!newStatus) setLastCoords(null) // clear coords when trip ends
+        if (newStatus) {
+            const start = Date.now()
+            setStartTime(start)
+            setDistance(0)
+
+            localStorage.setItem(
+                "tripTracking",
+                JSON.stringify({
+                    started: true,
+                    startTime: start,
+                    distance: 0
+                })
+            )
+        } else {
+            localStorage.removeItem("tripTracking")
+            setDistance(0)
+            setStartTime(null)
+            setLastCoords(null)
+        }
     }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-yellow-400 p-4 pb-24">
 
-            {/* Top bar */}
             <div className="bg-yellow-400 rounded-2xl p-4 shadow-xl mb-4 flex justify-between items-center text-black">
                 <div>
                     <h1 className="text-xl font-bold">Bus {driver?.busNumber || "..."} Driver</h1>
                     <p className="text-sm font-medium">
                         {driver?.fullName || "Loading..."}
+                    </p>
+                    <p className="text-sm font-semibold mt-1">
+                        🛣️ {distance} km travelled
                     </p>
                 </div>
                 <button onClick={logout} className="bg-black text-white px-4 py-2 rounded-lg font-bold text-sm">
@@ -159,7 +208,6 @@ function DriverDashboard() {
                 </button>
             </div>
 
-            {/* GPS Broadcasting Indicator */}
             {tripStarted && (
                 <div className="bg-green-900/80 border border-green-400/30 rounded-2xl p-3 mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -184,7 +232,6 @@ function DriverDashboard() {
                 </div>
             )}
 
-            {/* Emergency Button */}
             <div className="bg-white rounded-2xl p-4 shadow-lg mb-4 text-black">
                 <button
                     onClick={() => alert("Calling Transport Management...")}
@@ -194,7 +241,6 @@ function DriverDashboard() {
                 </button>
             </div>
 
-            {/* Students List */}
             <div className="space-y-3">
                 <div className="flex justify-between items-center px-1 mb-1">
                     <p className="text-white/50 text-xs uppercase tracking-widest font-bold">
@@ -232,7 +278,6 @@ function DriverDashboard() {
                 )}
             </div>
 
-            {/* Start / End Trip Button */}
             <div className="fixed bottom-0 left-0 right-0 bg-yellow-400 p-4 rounded-t-3xl shadow-xl z-20">
                 <button
                     onClick={toggleTrip}
