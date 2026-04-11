@@ -6,17 +6,20 @@ const db = require('./config/db');
 const jwt = require("jsonwebtoken");
 const cookieparser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
-const { Resend } = require('resend');
+const SibApiV3Sdk = require('@getbrevo/brevo');
+const { BrevoClient } = require('@getbrevo/brevo');
 const saltRounds = 10;
 
-// --- EMAIL CONFIGURATION (Resend API) ---
-const resend = new Resend(process.env.RESEND_API_KEY);
+// --- EMAIL CONFIGURATION (Brevo API) ---
+const brevo = new BrevoClient({
+    apiKey: process.env.BREVO_API_KEY,
+});
 
-// Verification on startup (logging API key presence)
-if (!process.env.RESEND_API_KEY) {
-    console.error("ERROR: RESEND_API_KEY is not defined in environment variables!");
+// Verification on startup
+if (!process.env.BREVO_API_KEY) {
+    console.error("ERROR: BREVO_API_KEY is not defined!");
 } else {
-    console.log("Resend API: Initialized with key starting with", process.env.RESEND_API_KEY.substring(0, 5));
+    console.log("Brevo API: Initialized");
 }
 
 // 1. DYNAMIC CORS: Replace with your actual Vercel URL
@@ -376,38 +379,40 @@ app.post('/api/send-otp', async (req, res) => {
             });
         });
 
-        // Send Email via Resend
-        const { data, error } = await resend.emails.send({
-            from: 'onboarding@resend.dev', // Simplest format
-            to: email,
-            subject: type === 'signup' ? 'Verify Your WCTM Registration' : 'Reset Your WCTM Password',
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
-                    <div style="background: #facc15; padding: 20px; text-align: center;">
-                        <img src="https://wctmgurgaon.com/images/logo.png" alt="WCTM Logo" style="width: 100px;">
-                    </div>
-                    <div style="padding: 30px; text-align: center;">
-                        <h2 style="color: #333;">Verification Code</h2>
-                        <p style="color: #666;">Your One-Time Password (OTP) for ${type === 'signup' ? 'registration' : 'password reset'} is:</p>
-                        <div style="background: #f3f4f6; padding: 15px; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111; margin: 20px 0; border-radius: 8px;">
-                            ${otp}
+        // Send Email via Brevo
+        try {
+            const result = await brevo.transactionalEmails.sendTransacEmail({
+                subject: type === 'signup' ? 'Verify Your WCTM Registration' : 'Reset Your WCTM Password',
+                sender: { "name": "WCTM Transport", "email": "raghavsingh8817nitin@gmail.com" },
+                to: [{ "email": email }],
+                htmlContent: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+                        <div style="background: #facc15; padding: 20px; text-align: center;">
+                            <img src="https://wctmgurgaon.com/images/logo.png" alt="WCTM Logo" style="width: 100px;">
                         </div>
-                        <p style="color: #999; font-size: 12px;">This code will expire in 5 minutes.</p>
+                        <div style="padding: 30px; text-align: center;">
+                            <h2 style="color: #333;">Verification Code</h2>
+                            <p style="color: #666;">Your One-Time Password (OTP) for ${type === 'signup' ? 'registration' : 'password reset'} is:</p>
+                            <div style="background: #f3f4f6; padding: 15px; font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #111; margin: 20px 0; border-radius: 8px;">
+                                ${otp}
+                            </div>
+                            <p style="color: #999; font-size: 12px;">This code will expire in 5 minutes.</p>
+                        </div>
+                        <div style="background: #f9fafb; padding: 15px; text-align: center; color: #aaa; font-size: 11px;">
+                            WCTM Transport Management System &copy; 2026
+                        </div>
                     </div>
-                    <div style="background: #f9fafb; padding: 15px; text-align: center; color: #aaa; font-size: 11px;">
-                        WCTM Transport Management System &copy; 2026
-                    </div>
-                </div>
-            `
-        });
-
-        if (error) {
-            console.error("Resend API Error:", error);
-            return res.status(500).json({ error: "Email delivery failed", details: error.message });
+                `
+            });
+            console.log("Email sent successfully via Brevo:", result.messageId);
+            res.json({ message: "OTP sent successfully" });
+        } catch (error) {
+            console.error("Brevo API Error:", error);
+            return res.status(500).json({ 
+                error: "Email delivery failed", 
+                details: error.message 
+            });
         }
-
-        console.log("Email sent successfully via Resend:", data.id);
-        res.json({ message: "OTP sent successfully" });
 
     } catch (err) {
         console.error("OTP Route Error:", err);
