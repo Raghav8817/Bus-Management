@@ -378,7 +378,7 @@ app.post('/api/send-otp', async (req, res) => {
 
         // Send Email via Resend
         const { data, error } = await resend.emails.send({
-            from: 'WCTM Transport <onboarding@resend.dev>', // Use onboarding@resend.dev for testing without domain verification
+            from: 'onboarding@resend.dev', // Simplest format
             to: email,
             subject: type === 'signup' ? 'Verify Your WCTM Registration' : 'Reset Your WCTM Password',
             html: `

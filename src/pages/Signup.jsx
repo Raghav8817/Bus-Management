@@ -93,7 +93,7 @@ function Signup() {
                 setIsOtpSent(true);
                 alert("OTP Sent to " + email);
             } else {
-                setError(data.error || "Failed to send OTP");
+                setError(data.details || data.error || "Failed to send OTP");
             }
         } catch (err) {
             setError("Server error while sending OTP");
