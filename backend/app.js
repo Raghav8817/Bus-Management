@@ -11,10 +11,15 @@ const saltRounds = 10;
 
 // --- EMAIL CONFIGURATION ---
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        rejectUnauthorized: false // Helps with some cloud hosting certificate issues
     }
 });
 
@@ -402,9 +407,14 @@ app.post('/api/send-otp', async (req, res) => {
 
         transporter.sendMail(mailOptions, (err, info) => {
             if (err) {
-                console.error("Email Error:", err);
-                return res.status(500).json({ error: "Failed to send email" });
+                console.error("Critical Email Error:", err);
+                // Return descriptive error for user debugging
+                return res.status(500).json({ 
+                    error: "Email delivery failed", 
+                    details: process.env.NODE_ENV === 'development' ? err.message : "Possible SMTP blocking or invalid credentials"
+                });
             }
+            console.log("Email sent successfully:", info.response);
             res.json({ message: "OTP sent successfully" });
         });
 
