@@ -6,22 +6,18 @@ const db = require('./config/db');
 const jwt = require("jsonwebtoken");
 const cookieparser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const saltRounds = 10;
 
-// --- EMAIL CONFIGURATION ---
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        rejectUnauthorized: false // Helps with some cloud hosting certificate issues
-    }
-});
+// --- EMAIL CONFIGURATION (Resend API) ---
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Verification on startup (logging API key presence)
+if (!process.env.RESEND_API_KEY) {
+    console.error("ERROR: RESEND_API_KEY is not defined in environment variables!");
+} else {
+    console.log("Resend API: Initialized with key starting with", process.env.RESEND_API_KEY.substring(0, 5));
+}
 
 // 1. DYNAMIC CORS: Replace with your actual Vercel URL
 app.use(cors({
@@ -380,9 +376,9 @@ app.post('/api/send-otp', async (req, res) => {
             });
         });
 
-        // Send Email
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
+        // Send Email via Resend
+        const { data, error } = await resend.emails.send({
+            from: 'WCTM Transport <onboarding@resend.dev>', // Use onboarding@resend.dev for testing without domain verification
             to: email,
             subject: type === 'signup' ? 'Verify Your WCTM Registration' : 'Reset Your WCTM Password',
             html: `
@@ -403,20 +399,15 @@ app.post('/api/send-otp', async (req, res) => {
                     </div>
                 </div>
             `
-        };
-
-        transporter.sendMail(mailOptions, (err, info) => {
-            if (err) {
-                console.error("Critical Email Error:", err);
-                // Return descriptive error for user debugging
-                return res.status(500).json({ 
-                    error: "Email delivery failed", 
-                    details: process.env.NODE_ENV === 'development' ? err.message : "Possible SMTP blocking or invalid credentials"
-                });
-            }
-            console.log("Email sent successfully:", info.response);
-            res.json({ message: "OTP sent successfully" });
         });
+
+        if (error) {
+            console.error("Resend API Error:", error);
+            return res.status(500).json({ error: "Email delivery failed", details: error.message });
+        }
+
+        console.log("Email sent successfully via Resend:", data.id);
+        res.json({ message: "OTP sent successfully" });
 
     } catch (err) {
         console.error("OTP Route Error:", err);
